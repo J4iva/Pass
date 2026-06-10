@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SessionSetupDialog.h"
 
+#include "../util/SubjectUtil.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTimeEdit>
@@ -15,18 +17,6 @@
 #include <QVBoxLayout>
 
 using namespace pass;
-
-namespace {
-
-QString colorForName(const QString& name) {
-    static const QStringList palette = {
-        QStringLiteral("#e57373"), QStringLiteral("#64b5f6"), QStringLiteral("#81c784"),
-        QStringLiteral("#ffb74d"), QStringLiteral("#ba68c8"), QStringLiteral("#4db6ac"),
-        QStringLiteral("#f06292"), QStringLiteral("#a1887f")};
-    return palette[qAbs(qHash(name)) % palette.size()];
-}
-
-} // namespace
 
 SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
                                        StrategyRepository& strategies, QWidget* parent)
@@ -104,17 +94,7 @@ std::optional<SessionPlan> SessionSetupDialog::selectedPlan() const {
 }
 
 QUuid SessionSetupDialog::resolveSubjectId() {
-    const QString name = m_subject->currentText().trimmed();
-    if (name.isEmpty())
-        return {};
-    for (const auto& s : m_subjects.all(/*includeArchived=*/true)) {
-        if (s.name.compare(name, Qt::CaseInsensitive) == 0)
-            return s.id;
-    }
-    Subject created{QUuid::createUuid(), name, colorForName(name), false};
-    if (!m_subjects.add(created))
-        return {};
-    return created.id;
+    return util::ensureSubject(m_subjects, m_subject->currentText());
 }
 
 QString SessionSetupDialog::topic() const {

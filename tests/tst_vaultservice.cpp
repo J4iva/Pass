@@ -22,16 +22,59 @@ private slots:
 
         const auto notes = service.notes();
         QCOMPARE(notes.size(), 1);
-        QCOMPARE(notes[0].title, QStringLiteral("Integrales por partes"));
+        QCOMPARE(notes[0].title, QStringLiteral("Cálculo - Integrales por partes"));
 
         auto content = service.readNote(*fileName);
         QVERIFY(content.has_value());
         QVERIFY(content->startsWith(QStringLiteral("---\n")));
         QVERIFY(content->contains(QStringLiteral("app: pass")));
         QVERIFY(content->contains(QStringLiteral("subject: Cálculo")));
+        QVERIFY(content->contains(QStringLiteral("created:")));
 
         QVERIFY(service.writeNote(*fileName, *content + QStringLiteral("más texto\n")));
         QVERIFY(service.readNote(*fileName)->endsWith(QStringLiteral("más texto\n")));
+    }
+
+    void subjectNotesGetStudyTemplate() {
+        QTemporaryDir vault;
+        VaultService service(vault.path(), QString());
+        const auto fileName = service.createNote(QStringLiteral("Tema 4"),
+                                                 QStringLiteral("Física Cuántica"));
+        QVERIFY(fileName.has_value());
+        QVERIFY(fileName->contains(QStringLiteral("Física Cuántica - Tema 4")));
+
+        const auto content = service.readNote(*fileName);
+        QVERIFY(content->contains(QStringLiteral("Asignatura: Física Cuántica")));
+        QVERIFY(content->contains(QStringLiteral("Creada:")));
+        QVERIFY(content->contains(QStringLiteral("## Apuntes")));
+        QVERIFY(content->contains(QStringLiteral("## Dudas")));
+        QVERIFY(content->contains(QStringLiteral("tags: [pass, física-cuántica]")));
+    }
+
+    void freeNotesGetSimpleStructure() {
+        QTemporaryDir vault;
+        VaultService service(vault.path(), QString());
+        const auto fileName = service.createNote(QStringLiteral("Ideas sueltas"));
+        QVERIFY(fileName.has_value());
+
+        const auto content = service.readNote(*fileName);
+        QVERIFY(content->contains(QStringLiteral("# Ideas sueltas")));
+        QVERIFY(content->contains(QStringLiteral("Creada:")));
+        QVERIFY(!content->contains(QStringLiteral("## Apuntes")));
+        QVERIFY(!content->contains(QStringLiteral("subject:")));
+    }
+
+    void deleteRemovesNote() {
+        QTemporaryDir vault;
+        VaultService service(vault.path(), QString());
+        const auto fileName = service.createNote(QStringLiteral("Efímera"));
+        QVERIFY(fileName.has_value());
+        QCOMPARE(service.notes().size(), 1);
+
+        QVERIFY(service.deleteNote(*fileName));
+        QCOMPARE(service.notes().size(), 0);
+        QVERIFY(!service.deleteNote(*fileName)); // ya no existe
+        QVERIFY(!service.deleteNote(QString()));
     }
 
     void collisionsGetSuffix() {

@@ -56,7 +56,7 @@ MainWindow::MainWindow(QWidget* parent)
         addPage(tr("Calendario"), unavailable());
     }
 
-    addPage(tr("Notas"), new NotesView);
+    addPage(tr("Notas"), new NotesView(dbOk ? m_db.get() : nullptr));
 
     if (dbOk) {
         m_studyView = new StudyView(*m_db, m_timer, m_calendar);

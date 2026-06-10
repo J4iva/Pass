@@ -82,15 +82,27 @@ bool VaultService::writeNote(const QString& fileName, const QString& content) {
     return file.commit();
 }
 
-std::optional<QString> VaultService::createNote(const QString& title, const QString& subject) {
+bool VaultService::deleteNote(const QString& fileName) {
+    if (fileName.isEmpty())
+        return false;
+    return QFile::remove(filePathFor(fileName));
+}
+
+std::optional<QString> VaultService::createNote(const QString& topic, const QString& subject) {
     if (!vaultExists())
         return std::nullopt;
 
-    const QString safeTitle = sanitizeTitle(title);
+    const QString safeTopic = sanitizeTitle(topic);
+    const QString safeSubject = sanitizeTitle(subject);
     const QDateTime now = QDateTime::currentDateTime();
-    const QString stem = QStringLiteral("%1 - %2").arg(
-        now.toString(QStringLiteral("yyyy-MM-dd HHmm")),
-        safeTitle.isEmpty() ? QStringLiteral("Nota") : safeTitle);
+
+    QStringList stemParts{now.toString(QStringLiteral("yyyy-MM-dd HHmm"))};
+    if (!safeSubject.isEmpty())
+        stemParts << safeSubject;
+    stemParts << (safeTopic.isEmpty() ? (safeSubject.isEmpty() ? QStringLiteral("Nota")
+                                                               : safeSubject)
+                                      : safeTopic);
+    const QString stem = stemParts.join(QStringLiteral(" - "));
 
     QDir().mkpath(notesDir());
     QString fileName = stem + QStringLiteral(".md");
@@ -100,12 +112,27 @@ std::optional<QString> VaultService::createNote(const QString& title, const QStr
     NoteSerializer::Document doc;
     NoteSerializer::setValue(doc, QStringLiteral("created"), now.toString(Qt::ISODate));
     NoteSerializer::setValue(doc, QStringLiteral("app"), QStringLiteral("pass"));
-    if (!subject.isEmpty())
-        NoteSerializer::setValue(doc, QStringLiteral("subject"), subject);
-    NoteSerializer::setValue(doc, QStringLiteral("tags"), QStringLiteral("[pass]"));
-    doc.body = QStringLiteral("\n# %1\n\n").arg(title.trimmed().isEmpty()
-                                                    ? QStringLiteral("Nota")
-                                                    : title.trimmed());
+
+    const QString heading = safeTopic.isEmpty() ? (safeSubject.isEmpty() ? QStringLiteral("Nota")
+                                                                         : safeSubject)
+                                                : topic.trimmed();
+    const QString dateText = now.toString(QStringLiteral("dd/MM/yyyy HH:mm"));
+
+    if (!safeSubject.isEmpty()) {
+        // Nota de estudio: plantilla con secciones.
+        NoteSerializer::setValue(doc, QStringLiteral("subject"), subject.trimmed());
+        QString subjectTag = safeSubject.toLower();
+        subjectTag.replace(QLatin1Char(' '), QLatin1Char('-'));
+        NoteSerializer::setValue(doc, QStringLiteral("tags"),
+                                 QStringLiteral("[pass, %1]").arg(subjectTag));
+        doc.body = QStringLiteral("\n# %1\n\n> Asignatura: %2 · Creada: %3\n\n"
+                                  "## Apuntes\n\n\n## Dudas\n\n")
+                       .arg(heading, subject.trimmed(), dateText);
+    } else {
+        // Nota libre: estructura mínima.
+        NoteSerializer::setValue(doc, QStringLiteral("tags"), QStringLiteral("[pass]"));
+        doc.body = QStringLiteral("\n# %1\n\n> Creada: %2\n\n").arg(heading, dateText);
+    }
 
     if (!writeNote(fileName, NoteSerializer::serialize(doc)))
         return std::nullopt;

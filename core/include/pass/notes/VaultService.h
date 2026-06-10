@@ -24,8 +24,11 @@ public:
     QList<Note> notes() const; // más recientes primero
     std::optional<QString> readNote(const QString& fileName) const;
     bool writeNote(const QString& fileName, const QString& content);
-    // Crea una nota con frontmatter de la app. Devuelve el nombre de fichero.
-    std::optional<QString> createNote(const QString& title, const QString& subject = {});
+    bool deleteNote(const QString& fileName);
+    // Crea una nota con frontmatter de la app y fecha registrada. Con
+    // asignatura genera plantilla de estudio (Apuntes/Dudas); sin ella, una
+    // nota libre. Devuelve el nombre de fichero.
+    std::optional<QString> createNote(const QString& topic, const QString& subject = {});
 
     static QString sanitizeTitle(const QString& title);
 

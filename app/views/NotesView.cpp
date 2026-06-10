@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NotesView.h"
 
+#include "../widgets/NewNoteDialog.h"
+
+#include "pass/repo/SubjectRepository.h"
+
 #include <QFileDialog>
 #include <QFrame>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
@@ -16,9 +19,10 @@
 
 using namespace pass;
 
-NotesView::NotesView(QWidget* parent)
-    : QWidget(parent), m_stack(new QStackedWidget), m_list(new QListWidget),
-      m_editor(new QPlainTextEdit), m_vaultLabel(new QLabel), m_conflictBar(new QFrame) {
+NotesView::NotesView(Database* db, QWidget* parent)
+    : QWidget(parent), m_db(db), m_stack(new QStackedWidget), m_list(new QListWidget),
+      m_editor(new QPlainTextEdit), m_vaultLabel(new QLabel), m_conflictBar(new QFrame),
+      m_deleteButton(new QPushButton(tr("Eliminar nota"))) {
     // Página 0: vault sin configurar.
     auto* emptyPage = new QWidget;
     {
@@ -70,6 +74,7 @@ NotesView::NotesView(QWidget* parent)
 
         auto* newButton = new QPushButton(tr("Nueva nota"));
         auto* changeVault = new QPushButton(tr("Cambiar vault"));
+        m_deleteButton->setEnabled(false);
         m_vaultLabel->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
         m_vaultLabel->setWordWrap(true);
 
@@ -78,14 +83,23 @@ NotesView::NotesView(QWidget* parent)
         leftLayout->setContentsMargins(0, 0, 0, 0);
         leftLayout->addWidget(newButton);
         leftLayout->addWidget(m_list, 1);
+        leftLayout->addWidget(m_deleteButton);
         leftLayout->addWidget(m_vaultLabel);
         leftLayout->addWidget(changeVault);
+
+        // Enlace a la guía oficial de sintaxis de Obsidian (negrita, fórmulas...).
+        auto* help = new QLabel(
+            tr("<a href=\"https://help.obsidian.md/syntax\">¿Cómo se escribe en Obsidian? "
+               "Guía de formato: negrita, fórmulas, enlaces...</a>"));
+        help->setOpenExternalLinks(true);
+        help->setStyleSheet(QStringLiteral("font-size: 11px;"));
 
         auto* right = new QWidget;
         auto* rightLayout = new QVBoxLayout(right);
         rightLayout->setContentsMargins(0, 0, 0, 0);
         rightLayout->addWidget(m_conflictBar);
         rightLayout->addWidget(m_editor, 1);
+        rightLayout->addWidget(help);
 
         auto* splitter = new QSplitter;
         splitter->addWidget(left);
@@ -97,6 +111,7 @@ NotesView::NotesView(QWidget* parent)
         layout->addWidget(splitter);
 
         connect(newButton, &QPushButton::clicked, this, &NotesView::newNote);
+        connect(m_deleteButton, &QPushButton::clicked, this, &NotesView::deleteNote);
         connect(changeVault, &QPushButton::clicked, this, &NotesView::chooseVault);
         connect(m_list, &QListWidget::currentRowChanged, this, [this](int) { loadSelected(); });
     }
@@ -188,6 +203,7 @@ void NotesView::refreshList(bool keepSelection) {
         m_currentFile.clear();
         m_dirty = false;
         m_conflictBar->setVisible(false);
+        m_deleteButton->setEnabled(false);
     }
 }
 
@@ -195,6 +211,7 @@ void NotesView::loadSelected() {
     saveCurrent();
     m_conflictBar->setVisible(false);
     auto* item = m_list->currentItem();
+    m_deleteButton->setEnabled(item != nullptr);
     if (!item) {
         m_currentFile.clear();
         return;
@@ -242,12 +259,15 @@ void NotesView::saveCurrent() {
 }
 
 void NotesView::newNote() {
-    bool ok = false;
-    const QString title = QInputDialog::getText(this, tr("Nueva nota"), tr("Título:"),
-                                                QLineEdit::Normal, QString(), &ok);
-    if (!ok)
+    std::unique_ptr<SubjectRepository> subjects;
+    if (m_db && m_db->isOpen())
+        subjects = std::make_unique<SubjectRepository>(m_db->handle());
+
+    NewNoteDialog dialog(subjects.get(), this);
+    if (dialog.exec() != QDialog::Accepted)
         return;
-    const auto fileName = m_vault->createNote(title);
+
+    const auto fileName = m_vault->createNote(dialog.topic(), dialog.subject());
     if (!fileName) {
         QMessageBox::warning(this, tr("Notas"), tr("No se pudo crear la nota."));
         return;
@@ -261,4 +281,26 @@ void NotesView::newNote() {
             break;
         }
     }
+}
+
+void NotesView::deleteNote() {
+    auto* item = m_list->currentItem();
+    if (!item)
+        return;
+    const QString fileName = item->data(Qt::UserRole).toString();
+    if (QMessageBox::question(
+            this, tr("Eliminar nota"),
+            tr("¿Eliminar \"%1\" del vault?\nEsta acción borra el fichero de Obsidian.")
+                .arg(item->text())) != QMessageBox::Yes)
+        return;
+
+    // La nota desaparece: descarta cualquier autosave pendiente sobre ella.
+    m_saveTimer.stop();
+    m_dirty = false;
+    if (!m_vault->deleteNote(fileName)) {
+        QMessageBox::warning(this, tr("Notas"), tr("No se pudo eliminar la nota."));
+        return;
+    }
+    m_currentFile.clear();
+    refreshList(/*keepSelection=*/false);
 }
