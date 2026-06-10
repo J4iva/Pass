@@ -24,6 +24,7 @@ Pass/
 ├── CMakePresets.json     # presets debug/release (GCC + Ninja, MSYS2 UCRT64)
 ├── estructura.md         # este documento
 ├── docs/plan.md          # plan de implementación completo (milestones M0-M7)
+├── scripts/deploy.ps1    # empaqueta release en dist/ (windeployqt6 + runtime MinGW)
 ├── core/                 # lib estática "passcore": lógica de negocio
 │   │                     #   SOLO Qt Core + Qt Sql (nunca Widgets), reutilizable
 │   │                     #   en la futura versión web detrás de un servidor REST
@@ -32,11 +33,15 @@ Pass/
 │   └── src/              # implementación (espejo de include/)
 ├── app/                  # ejecutable Qt Widgets
 │   ├── MainWindow.*      # shell: sidebar de navegación + QStackedWidget
-│   ├── views/            # una vista por módulo (Dashboard, Calendario, Notas...)
-│   ├── widgets/          # widgets reutilizables (timer, diálogos...)
+│   ├── views/            # Dashboard, Calendario, Notas, Estudio, Estadísticas
+│   ├── widgets/          # timer, diálogos de sesión y de evento
 │   └── models/           # modelos Qt (QAbstractItemModel) que consumen el core
-└── tests/                # tests con QtTest, registrados en ctest
+└── tests/                # 10 suites QtTest registradas en ctest
 ```
+
+Estado actual: MVP completo (M0-M7 del plan). Pendiente fase 2: sincronización
+con Google Calendar (QtNetworkAuth) — al implementarla, revisar seguridad de
+credenciales/tokens (modo contingencia).
 
 ## Decisiones clave
 
@@ -65,4 +70,7 @@ Pass/
 - **IDE**: Zed y/o VS Code con clangd (usa el `compile_commands.json` generado por CMake).
 - **Tests**: QtTest + `ctest --preset debug`.
 - **Formato**: clang-format (config en `.clang-format`, estilo LLVM ajustado).
-- **Despliegue**: `windeployqt6 --release pass.exe` (Qt enlazado dinámicamente, requisito LGPL).
+- **Despliegue**: `scripts/deploy.ps1` → carpeta `dist/` autocontenida. Usa
+  `windeployqt6` (DLLs y plugins de Qt) más un walker con objdump que copia el
+  runtime de MinGW y terceros (icu, pcre2, zstd...), que windeployqt no cubre.
+  Qt va enlazado dinámicamente (requisito LGPL).
