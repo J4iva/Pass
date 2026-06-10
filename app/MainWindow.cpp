@@ -2,10 +2,12 @@
 #include "MainWindow.h"
 
 #include "pass/Version.h"
+#include "views/StudyView.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QStackedWidget>
 
 namespace {
@@ -22,17 +24,21 @@ QWidget* placeholderPage(const QString& text) {
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_sidebar(new QListWidget), m_pages(new QStackedWidget) {
+    : QMainWindow(parent), m_db(std::make_unique<pass::Database>(pass::Database::defaultPath())),
+      m_timer(new pass::SessionTimerService(this)), m_sidebar(new QListWidget),
+      m_pages(new QStackedWidget) {
     setWindowTitle(tr("Pass %1").arg(pass::appVersion()));
     resize(1100, 720);
 
     m_sidebar->setFixedWidth(180);
     m_sidebar->setFrameShape(QFrame::NoFrame);
 
+    const bool dbOk = m_db->isOpen();
     addPage(tr("Dashboard"), placeholderPage(tr("Dashboard — próximamente")));
     addPage(tr("Calendario"), placeholderPage(tr("Calendario — próximamente")));
     addPage(tr("Notas"), placeholderPage(tr("Notas — próximamente")));
-    addPage(tr("Estudio"), placeholderPage(tr("Sesiones de estudio — próximamente")));
+    addPage(tr("Estudio"), dbOk ? static_cast<QWidget*>(new StudyView(*m_db, m_timer))
+                                : placeholderPage(tr("Base de datos no disponible")));
     addPage(tr("Estadísticas"), placeholderPage(tr("Estadísticas — próximamente")));
 
     connect(m_sidebar, &QListWidget::currentRowChanged, m_pages, &QStackedWidget::setCurrentIndex);
@@ -45,7 +51,16 @@ MainWindow::MainWindow(QWidget* parent)
     layout->addWidget(m_sidebar);
     layout->addWidget(m_pages, 1);
     setCentralWidget(central);
+
+    if (!dbOk) {
+        QMessageBox::warning(this, tr("Pass"),
+                             tr("No se pudo abrir la base de datos en %1. Algunas funciones "
+                                "estarán deshabilitadas.")
+                                 .arg(pass::Database::defaultPath()));
+    }
 }
+
+MainWindow::~MainWindow() = default;
 
 void MainWindow::addPage(const QString& title, QWidget* page) {
     m_sidebar->addItem(title);
