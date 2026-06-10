@@ -6,6 +6,10 @@ qt_add_library(passcore STATIC
     src/repo/SubjectRepository.cpp
     src/repo/StrategyRepository.cpp
     src/repo/SessionRepository.cpp
+    src/repo/EventRepository.cpp
+    src/calendar/LocalCalendarProvider.cpp
+    include/pass/calendar/CalendarProvider.h
+    include/pass/calendar/LocalCalendarProvider.h
     src/session/StrategyCatalog.cpp
     src/session/SessionTimerService.cpp
     src/stats/StatsService.cpp

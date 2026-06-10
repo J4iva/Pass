@@ -9,7 +9,9 @@
 
 #include <optional>
 
+class QCheckBox;
 class QComboBox;
+class QDateTimeEdit;
 class QLineEdit;
 class QListWidget;
 class QSpinBox;
@@ -27,6 +29,8 @@ public:
     // Resuelve la asignatura escrita: la busca por nombre o la crea. Nula si vacío.
     QUuid resolveSubjectId();
     QString topic() const;
+    // Con valor si el usuario eligió planificar la sesión en vez de empezarla ya.
+    std::optional<QDateTime> plannedStart() const;
 
 private:
     void refreshProposals();
@@ -39,4 +43,6 @@ private:
     QComboBox* m_subject;
     QLineEdit* m_topic;
     QListWidget* m_proposals;
+    QCheckBox* m_planLater;
+    QDateTimeEdit* m_plannedStart;
 };

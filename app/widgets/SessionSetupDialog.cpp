@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SessionSetupDialog.h"
 
+#include <QCheckBox>
 #include <QComboBox>
+#include <QDateTimeEdit>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -29,7 +32,8 @@ SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
                                        StrategyRepository& strategies, QWidget* parent)
     : QDialog(parent), m_subjects(subjects), m_strategies(strategies),
       m_minutes(new QSpinBox), m_subject(new QComboBox), m_topic(new QLineEdit),
-      m_proposals(new QListWidget) {
+      m_proposals(new QListWidget), m_planLater(new QCheckBox(tr("Planificar para más tarde"))),
+      m_plannedStart(new QDateTimeEdit(QDateTime::currentDateTime().addSecs(3600))) {
     setWindowTitle(tr("Nueva sesión de estudio"));
     setMinimumWidth(420);
 
@@ -50,15 +54,29 @@ SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
     form->addRow(tr("Asignatura"), m_subject);
     form->addRow(tr("Tema"), m_topic);
 
+    m_plannedStart->setCalendarPopup(true);
+    m_plannedStart->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
+    m_plannedStart->setEnabled(false);
+
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     buttons->button(QDialogButtonBox::Ok)->setText(tr("Empezar"));
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(m_planLater, &QCheckBox::toggled, this, [this, buttons](bool later) {
+        m_plannedStart->setEnabled(later);
+        buttons->button(QDialogButtonBox::Ok)
+            ->setText(later ? tr("Añadir al calendario") : tr("Empezar"));
+    });
+
+    auto* planRow = new QHBoxLayout;
+    planRow->addWidget(m_planLater);
+    planRow->addWidget(m_plannedStart, 1);
 
     auto* layout = new QVBoxLayout(this);
     layout->addLayout(form);
     layout->addWidget(new QLabel(tr("Estrategias propuestas:")));
     layout->addWidget(m_proposals);
+    layout->addLayout(planRow);
     layout->addWidget(buttons);
 
     connect(m_minutes, &QSpinBox::valueChanged, this, &SessionSetupDialog::refreshProposals);
@@ -101,4 +119,10 @@ QUuid SessionSetupDialog::resolveSubjectId() {
 
 QString SessionSetupDialog::topic() const {
     return m_topic->text().trimmed();
+}
+
+std::optional<QDateTime> SessionSetupDialog::plannedStart() const {
+    if (!m_planLater->isChecked())
+        return std::nullopt;
+    return m_plannedStart->dateTime();
 }
