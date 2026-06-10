@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 
 #include "pass/Version.h"
+#include "views/StatsView.h"
 #include "views/StudyView.h"
 
 #include <QHBoxLayout>
@@ -39,7 +40,8 @@ MainWindow::MainWindow(QWidget* parent)
     addPage(tr("Notas"), placeholderPage(tr("Notas — próximamente")));
     addPage(tr("Estudio"), dbOk ? static_cast<QWidget*>(new StudyView(*m_db, m_timer))
                                 : placeholderPage(tr("Base de datos no disponible")));
-    addPage(tr("Estadísticas"), placeholderPage(tr("Estadísticas — próximamente")));
+    addPage(tr("Estadísticas"), dbOk ? static_cast<QWidget*>(new StatsView(*m_db))
+                                     : placeholderPage(tr("Base de datos no disponible")));
 
     connect(m_sidebar, &QListWidget::currentRowChanged, m_pages, &QStackedWidget::setCurrentIndex);
     m_sidebar->setCurrentRow(0);

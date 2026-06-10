@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Sql Widgets Test)
+find_package(Qt6 REQUIRED COMPONENTS Core Sql Widgets Test Charts)
 
 enable_testing()
 

@@ -8,6 +8,7 @@ qt_add_library(passcore STATIC
     src/repo/SessionRepository.cpp
     src/session/StrategyCatalog.cpp
     src/session/SessionTimerService.cpp
+    src/stats/StatsService.cpp
     include/pass/session/SessionTimerService.h
 )
 
