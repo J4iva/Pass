@@ -4,6 +4,7 @@
 #include "pass/Version.h"
 #include "pass/repo/SessionRepository.h"
 #include "views/CalendarView.h"
+#include "views/NotesView.h"
 #include "views/StatsView.h"
 #include "views/StudyView.h"
 
@@ -51,7 +52,7 @@ MainWindow::MainWindow(QWidget* parent)
         addPage(tr("Calendario"), unavailable());
     }
 
-    addPage(tr("Notas"), placeholderPage(tr("Notas — próximamente")));
+    addPage(tr("Notas"), new NotesView);
 
     if (dbOk) {
         m_studyView = new StudyView(*m_db, m_timer, m_calendar);

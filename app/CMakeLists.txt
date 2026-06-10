@@ -8,6 +8,8 @@ qt_add_executable(pass WIN32
     views/StatsView.cpp
     views/CalendarView.h
     views/CalendarView.cpp
+    views/NotesView.h
+    views/NotesView.cpp
     widgets/EventDialog.h
     widgets/EventDialog.cpp
     models/SessionTableModel.h
