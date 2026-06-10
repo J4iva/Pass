@@ -2,6 +2,7 @@
 #include "NotesView.h"
 
 #include <QFileDialog>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
@@ -17,7 +18,7 @@ using namespace pass;
 
 NotesView::NotesView(QWidget* parent)
     : QWidget(parent), m_stack(new QStackedWidget), m_list(new QListWidget),
-      m_editor(new QPlainTextEdit), m_vaultLabel(new QLabel) {
+      m_editor(new QPlainTextEdit), m_vaultLabel(new QLabel), m_conflictBar(new QFrame) {
     // Página 0: vault sin configurar.
     auto* emptyPage = new QWidget;
     {
@@ -33,12 +34,39 @@ NotesView::NotesView(QWidget* parent)
         connect(choose, &QPushButton::clicked, this, &NotesView::chooseVault);
     }
 
-    // Página 1: lista + editor.
+    // Página 1: lista + editor con barra de conflicto.
     auto* mainPage = new QWidget;
     {
         QFont mono(QStringLiteral("Consolas"));
         mono.setStyleHint(QFont::Monospace);
         m_editor->setFont(mono);
+
+        // Barra mostrada cuando la nota abierta cambió en Obsidian y aquí hay
+        // ediciones sin guardar.
+        m_conflictBar->setVisible(false);
+        m_conflictBar->setFrameShape(QFrame::StyledPanel);
+        m_conflictBar->setStyleSheet(
+            QStringLiteral("background: #fff3cd; border: 1px solid #ffe69c;"));
+        {
+            auto* text = new QLabel(tr("Esta nota se ha modificado en Obsidian."));
+            auto* reload = new QPushButton(tr("Recargar"));
+            auto* keep = new QPushButton(tr("Conservar lo mío"));
+            auto* layout = new QHBoxLayout(m_conflictBar);
+            layout->setContentsMargins(8, 4, 8, 4);
+            layout->addWidget(text, 1);
+            layout->addWidget(reload);
+            layout->addWidget(keep);
+            connect(reload, &QPushButton::clicked, this, [this] {
+                m_dirty = false;
+                reloadCurrentFromDisk();
+                m_conflictBar->setVisible(false);
+            });
+            connect(keep, &QPushButton::clicked, this, [this] {
+                m_dirty = true;
+                saveCurrent(); // mi versión pisa la del disco
+                m_conflictBar->setVisible(false);
+            });
+        }
 
         auto* newButton = new QPushButton(tr("Nueva nota"));
         auto* changeVault = new QPushButton(tr("Cambiar vault"));
@@ -53,9 +81,15 @@ NotesView::NotesView(QWidget* parent)
         leftLayout->addWidget(m_vaultLabel);
         leftLayout->addWidget(changeVault);
 
+        auto* right = new QWidget;
+        auto* rightLayout = new QVBoxLayout(right);
+        rightLayout->setContentsMargins(0, 0, 0, 0);
+        rightLayout->addWidget(m_conflictBar);
+        rightLayout->addWidget(m_editor, 1);
+
         auto* splitter = new QSplitter;
         splitter->addWidget(left);
-        splitter->addWidget(m_editor);
+        splitter->addWidget(right);
         splitter->setStretchFactor(0, 1);
         splitter->setStretchFactor(1, 3);
 
@@ -83,6 +117,9 @@ NotesView::NotesView(QWidget* parent)
         m_saveTimer.start();
     });
 
+    connect(&m_watcher, &VaultWatcher::vaultChanged, this, [this] { refreshList(); });
+    connect(&m_watcher, &VaultWatcher::noteChanged, this, &NotesView::onExternalNoteChange);
+
     rebuildService();
 }
 
@@ -98,7 +135,7 @@ void NotesView::chooseVault() {
         return;
     m_settings.setVaultPath(dir);
     rebuildService();
-    if (m_vault && !m_vault->looksLikeObsidianVault()) {
+    if (m_vault && m_vault->vaultExists() && !m_vault->looksLikeObsidianVault()) {
         QMessageBox::information(
             this, tr("Notas"),
             tr("La carpeta elegida no contiene un vault de Obsidian (falta .obsidian/). "
@@ -109,43 +146,67 @@ void NotesView::chooseVault() {
 void NotesView::rebuildService() {
     saveCurrent();
     m_currentFile.clear();
+    m_conflictBar->setVisible(false);
     m_vault = std::make_unique<VaultService>(m_settings.vaultPath(), m_settings.vaultSubfolder());
 
     const bool ready = m_vault->vaultExists();
     m_stack->setCurrentIndex(ready ? 1 : 0);
     if (ready) {
         m_vaultLabel->setText(tr("Vault: %1").arg(m_settings.vaultPath()));
-        refreshList();
+        refreshList(/*keepSelection=*/false);
+        // El watcher vigila la carpeta de notas (se crea al guardar la primera).
+        m_watcher.watch(m_vault->notesDir());
+    } else {
+        m_watcher.stop();
     }
 }
 
-void NotesView::refreshList() {
+void NotesView::refreshList(bool keepSelection) {
+    const QString previous = keepSelection ? m_currentFile : QString();
+
     m_list->blockSignals(true);
     m_list->clear();
-    for (const auto& note : m_vault->notes()) {
-        auto* item = new QListWidgetItem(note.title);
-        item->setData(Qt::UserRole, note.fileName);
-        item->setToolTip(note.fileName);
+    int restoreRow = -1;
+    const auto notes = m_vault->notes();
+    for (int i = 0; i < notes.size(); ++i) {
+        auto* item = new QListWidgetItem(notes[i].title);
+        item->setData(Qt::UserRole, notes[i].fileName);
+        item->setToolTip(notes[i].fileName);
         m_list->addItem(item);
+        if (notes[i].fileName == previous)
+            restoreRow = i;
     }
+    if (restoreRow >= 0)
+        m_list->setCurrentRow(restoreRow);
     m_list->blockSignals(false);
 
-    m_loading = true;
-    m_editor->clear();
-    m_editor->setEnabled(false);
-    m_loading = false;
-    m_currentFile.clear();
+    if (restoreRow < 0) {
+        m_loading = true;
+        m_editor->clear();
+        m_editor->setEnabled(false);
+        m_loading = false;
+        m_currentFile.clear();
+        m_dirty = false;
+        m_conflictBar->setVisible(false);
+    }
 }
 
 void NotesView::loadSelected() {
     saveCurrent();
+    m_conflictBar->setVisible(false);
     auto* item = m_list->currentItem();
     if (!item) {
         m_currentFile.clear();
         return;
     }
-    const QString fileName = item->data(Qt::UserRole).toString();
-    const auto content = m_vault->readNote(fileName);
+    m_currentFile = item->data(Qt::UserRole).toString();
+    reloadCurrentFromDisk();
+}
+
+void NotesView::reloadCurrentFromDisk() {
+    if (m_currentFile.isEmpty())
+        return;
+    const auto content = m_vault->readNote(m_currentFile);
     if (!content) {
         QMessageBox::warning(this, tr("Notas"), tr("No se pudo leer la nota."));
         return;
@@ -154,8 +215,21 @@ void NotesView::loadSelected() {
     m_editor->setPlainText(*content);
     m_editor->setEnabled(true);
     m_loading = false;
-    m_currentFile = fileName;
     m_dirty = false;
+}
+
+void NotesView::onExternalNoteChange(const QString& fileName) {
+    if (fileName != m_currentFile) {
+        refreshList();
+        return;
+    }
+    const auto onDisk = m_vault->readNote(m_currentFile);
+    if (onDisk && *onDisk == m_editor->toPlainText())
+        return; // eco de nuestro propio guardado
+    if (m_dirty)
+        m_conflictBar->setVisible(true);
+    else
+        reloadCurrentFromDisk();
 }
 
 void NotesView::saveCurrent() {
@@ -178,7 +252,9 @@ void NotesView::newNote() {
         QMessageBox::warning(this, tr("Notas"), tr("No se pudo crear la nota."));
         return;
     }
-    refreshList();
+    // La carpeta de notas puede haberse creado con esta primera nota.
+    m_watcher.watch(m_vault->notesDir());
+    refreshList(/*keepSelection=*/false);
     for (int i = 0; i < m_list->count(); ++i) {
         if (m_list->item(i)->data(Qt::UserRole).toString() == *fileName) {
             m_list->setCurrentRow(i);

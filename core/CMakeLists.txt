@@ -15,7 +15,9 @@ qt_add_library(passcore STATIC
     src/stats/StatsService.cpp
     src/notes/NoteSerializer.cpp
     src/notes/VaultService.cpp
+    src/notes/VaultWatcher.cpp
     src/settings/AppSettings.cpp
+    include/pass/notes/VaultWatcher.h
     include/pass/session/SessionTimerService.h
 )
 

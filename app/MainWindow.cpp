@@ -4,6 +4,7 @@
 #include "pass/Version.h"
 #include "pass/repo/SessionRepository.h"
 #include "views/CalendarView.h"
+#include "views/DashboardView.h"
 #include "views/NotesView.h"
 #include "views/StatsView.h"
 #include "views/StudyView.h"
@@ -40,10 +41,13 @@ MainWindow::MainWindow(QWidget* parent)
     const bool dbOk = m_db->isOpen();
     const auto unavailable = [&] { return placeholderPage(tr("Base de datos no disponible")); };
 
-    addPage(tr("Dashboard"), placeholderPage(tr("Dashboard — próximamente")));
+    if (dbOk)
+        m_calendar = new pass::LocalCalendarProvider(m_db->handle(), this);
+
+    addPage(tr("Dashboard"), dbOk ? static_cast<QWidget*>(new DashboardView(*m_db, m_calendar))
+                                  : placeholderPage(tr("Dashboard — próximamente")));
 
     if (dbOk) {
-        m_calendar = new pass::LocalCalendarProvider(m_db->handle(), this);
         auto* calendarView = new CalendarView(*m_db, m_calendar);
         addPage(tr("Calendario"), calendarView);
         connect(calendarView, &CalendarView::startSessionRequested, this,

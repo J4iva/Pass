@@ -2,6 +2,7 @@
 #pragma once
 
 #include "pass/notes/VaultService.h"
+#include "pass/notes/VaultWatcher.h"
 #include "pass/settings/AppSettings.h"
 
 #include <QTimer>
@@ -9,6 +10,7 @@
 
 #include <memory>
 
+class QFrame;
 class QLabel;
 class QListWidget;
 class QPlainTextEdit;
@@ -26,13 +28,16 @@ protected:
 private:
     void chooseVault();
     void rebuildService();
-    void refreshList();
+    void refreshList(bool keepSelection = true);
     void loadSelected();
     void saveCurrent();
     void newNote();
+    void onExternalNoteChange(const QString& fileName);
+    void reloadCurrentFromDisk();
 
     pass::AppSettings m_settings;
     std::unique_ptr<pass::VaultService> m_vault;
+    pass::VaultWatcher m_watcher;
     QString m_currentFile;
     bool m_loading = false;
     bool m_dirty = false;
@@ -42,4 +47,5 @@ private:
     QListWidget* m_list;
     QPlainTextEdit* m_editor;
     QLabel* m_vaultLabel;
+    QFrame* m_conflictBar;
 };
