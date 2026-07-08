@@ -25,4 +25,18 @@ QUuid ensureSubject(pass::SubjectRepository& repo, const QString& name) {
     return created.id;
 }
 
+QUuid ensureTopic(pass::TopicRepository& repo, const QUuid& subjectId, const QString& name) {
+    const QString trimmed = name.trimmed();
+    if (trimmed.isEmpty() || subjectId.isNull())
+        return {};
+    for (const auto& t : repo.bySubject(subjectId)) {
+        if (t.name.compare(trimmed, Qt::CaseInsensitive) == 0)
+            return t.id;
+    }
+    pass::Topic created{QUuid::createUuid(), subjectId, trimmed, {}};
+    if (!repo.add(created))
+        return {};
+    return created.id;
+}
+
 } // namespace util

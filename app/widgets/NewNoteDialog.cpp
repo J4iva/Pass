@@ -9,11 +9,13 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
-NewNoteDialog::NewNoteDialog(pass::SubjectRepository* subjects, QWidget* parent)
-    : QDialog(parent), m_subjects(subjects), m_subject(new QComboBox),
-      m_topic(new QLineEdit) {
+NewNoteDialog::NewNoteDialog(pass::SubjectRepository* subjects, pass::TopicRepository* topics,
+                             QWidget* parent)
+    : QDialog(parent), m_subjects(subjects), m_topics(topics), m_subject(new QComboBox),
+      m_topic(new QComboBox) {
     setWindowTitle(tr("Nueva nota"));
     setMinimumWidth(380);
 
@@ -23,14 +25,20 @@ NewNoteDialog::NewNoteDialog(pass::SubjectRepository* subjects, QWidget* parent)
         for (const auto& s : m_subjects->all())
             m_subject->addItem(s.name);
     }
-    m_topic->setPlaceholderText(tr("integrales, tema 4, ideas..."));
+    m_topic->setEditable(true);
+    m_topic->setInsertPolicy(QComboBox::NoInsert);
+    if (auto* edit = m_topic->lineEdit())
+        edit->setPlaceholderText(tr("integrales, tema 4, ideas..."));
+    reloadTopics();
+    // Al cambiar la asignatura, mostrar sus temas existentes.
+    connect(m_subject, &QComboBox::currentTextChanged, this, &NewNoteDialog::reloadTopics);
 
     auto* form = new QFormLayout;
     form->addRow(tr("Asignatura"), m_subject);
     form->addRow(tr("Tema"), m_topic);
 
     auto* hint = new QLabel(tr("Rellena al menos uno. Con asignatura se crea una "
-                               "plantilla de estudio; sin ella, una nota libre."));
+                               "plantilla de trabajo; sin ella, una nota libre."));
     hint->setWordWrap(true);
     hint->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
 
@@ -49,7 +57,26 @@ QString NewNoteDialog::subject() const {
 }
 
 QString NewNoteDialog::topic() const {
-    return m_topic->text().trimmed();
+    return m_topic->currentText().trimmed();
+}
+
+void NewNoteDialog::reloadTopics() {
+    // Conserva lo que el usuario hubiera escrito mientras se repuebla la lista.
+    const QString current = m_topic->currentText();
+    QSignalBlocker blocker(m_topic);
+    m_topic->clear();
+    m_topic->addItem(QString());
+    const QString name = subject();
+    if (m_subjects && m_topics && !name.isEmpty()) {
+        for (const auto& s : m_subjects->all(/*includeArchived=*/true)) {
+            if (s.name.compare(name, Qt::CaseInsensitive) == 0) {
+                for (const auto& t : m_topics->bySubject(s.id))
+                    m_topic->addItem(t.name);
+                break;
+            }
+        }
+    }
+    m_topic->setCurrentText(current);
 }
 
 void NewNoteDialog::accept() {
@@ -58,8 +85,12 @@ void NewNoteDialog::accept() {
                              tr("Indica al menos la asignatura o el tema."));
         return;
     }
-    // Mantiene el listado de asignaturas consistente con el resto de la app.
-    if (m_subjects && !subject().isEmpty())
-        util::ensureSubject(*m_subjects, subject());
+    // Mantiene asignaturas y temas consistentes con el resto de la app: crea
+    // los que el usuario haya escrito y no existieran todavía.
+    if (m_subjects && !subject().isEmpty()) {
+        const QUuid subjectId = util::ensureSubject(*m_subjects, subject());
+        if (m_topics && !subjectId.isNull() && !topic().isEmpty())
+            util::ensureTopic(*m_topics, subjectId, topic());
+    }
     QDialog::accept();
 }

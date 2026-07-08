@@ -3,11 +3,14 @@
 
 #include "pass/calendar/CalendarProvider.h"
 #include "pass/db/Database.h"
+#include "pass/repo/SessionRepository.h"
+#include "pass/repo/StrategyRepository.h"
 #include "pass/repo/SubjectRepository.h"
+#include "pass/repo/TopicRepository.h"
 
 #include <QWidget>
 
-class QCalendarWidget;
+class ActivityCalendarWidget;
 class QListWidget;
 class QListWidgetItem;
 class QPushButton;
@@ -18,25 +21,28 @@ class CalendarView : public QWidget {
 public:
     CalendarView(pass::Database& db, pass::CalendarProvider* provider, QWidget* parent = nullptr);
 
-signals:
-    // El usuario quiere empezar la sesión de estudio planificada de este evento.
-    void startSessionRequested(const QUuid& sessionId);
+    // Recarga la lista del día y el mapa de actividad (p. ej. tras una sync remota).
+    void refresh();
 
 private:
     void refreshDayList();
-    void refreshMonthMarks();
-    void newEvent();
+    void refreshActivity();
+    QWidget* buildLegend();
+    void newEvent(bool asTask);
+    void newSession();
     void editEvent(QListWidgetItem* item);
     void deleteSelected();
     std::optional<pass::CalendarEvent> selectedEvent() const;
 
     pass::SubjectRepository m_subjects;
+    pass::TopicRepository m_topics;
+    pass::StrategyRepository m_strategies;
+    pass::SessionRepository m_sessions;
     pass::CalendarProvider* m_provider;
     QList<pass::CalendarEvent> m_dayEvents;
 
-    QCalendarWidget* m_calendar;
+    ActivityCalendarWidget* m_calendar;
     QListWidget* m_list;
-    QPushButton* m_start;
     QPushButton* m_edit;
     QPushButton* m_delete;
 };

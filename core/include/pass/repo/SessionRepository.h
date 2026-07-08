@@ -20,6 +20,10 @@ public:
     bool update(const StudySession& session);
     bool remove(const QUuid& id);
 
+    // Segundos trabajados en total en las sesiones vinculadas a un evento
+    // (p. ej. una tarea). Suma actual_sec de las filas con ese event_id.
+    qint64 totalSecondsForEvent(const QUuid& eventId) const;
+
 private:
     QSqlDatabase m_db;
 };

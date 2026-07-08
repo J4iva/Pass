@@ -26,6 +26,14 @@ Database::Database(const QString& path) {
     if (!pragma.exec(QStringLiteral("PRAGMA foreign_keys = ON")))
         return;
 
+    // WAL permite que el lector (hilo GUI) y el escritor (hilo de sincronización,
+    // que abre SU PROPIA conexión al mismo fichero) coexistan sin bloquearse: el
+    // lector ve siempre el último commit y nunca recibe SQLITE_BUSY por el writer.
+    // busy_timeout hace que, si ambos escriben, el segundo espere en vez de fallar.
+    // En ":memory:" (tests) WAL no aplica y devuelve "memory": no es un error.
+    pragma.exec(QStringLiteral("PRAGMA journal_mode = WAL"));
+    pragma.exec(QStringLiteral("PRAGMA busy_timeout = 5000"));
+
     m_ok = applyMigrations(db);
 }
 

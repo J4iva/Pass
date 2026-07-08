@@ -51,6 +51,28 @@ private slots:
         QVERIFY(plans[0].totalWorkMinutes >= plans[1].totalWorkMinutes);
     }
 
+    void negativeBreakDoesNotHang() {
+        // Regresión H-1 (CWE-835): un descanso negativo de una estrategia
+        // corrupta/sincronizada hacía `next <= 0`, dejaba de crecer `total` y el
+        // bucle no terminaba (congelaba la GUI). Debe devolver un plan finito.
+        const auto plans = StrategyCatalog::proposals(
+            120, {strategy(QStringLiteral("corrupta"), 25, -100, -100, 4)});
+        QCOMPARE(plans.size(), 1);
+        QCOMPARE(plans[0].cycles, 1); // no progresa más allá del primer bloque
+        QCOMPARE(plans[0].totalMinutes, 25);
+    }
+
+    void longBreakNegativeDoesNotHang() {
+        // Igual que el anterior pero por el descanso largo (otra vía de `next<=0`).
+        const auto plans = StrategyCatalog::proposals(
+            600, {strategy(QStringLiteral("corrupta2"), 10, 5, -9999, 2)});
+        QCOMPARE(plans.size(), 1);
+        // 10 +5+10 = 25 (2 ciclos); el 3er bloque exigiría el descanso largo
+        // negativo => next<=0 => deja de progresar. Plan finito.
+        QCOMPARE(plans[0].cycles, 2);
+        QCOMPARE(plans[0].totalMinutes, 25);
+    }
+
     void describeIsHumanReadable() {
         const auto plans = StrategyCatalog::proposals(
             120, {strategy(QStringLiteral("25/5"), 25, 5, 15, 4)});

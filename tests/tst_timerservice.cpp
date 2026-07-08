@@ -63,6 +63,43 @@ private slots:
         QVERIFY(session.actualSeconds >= 1);
     }
 
+    void abortIsNotResumable() {
+        SessionTimerService timer;
+        QSignalSpy finishedSpy(&timer, &SessionTimerService::finished);
+        timer.startWithPhases({{Phase::Work, 60}}, {}, {});
+        timer.abort();
+        const auto session = finishedSpy.takeFirst().at(0).value<StudySession>();
+        QCOMPARE(session.resumePhaseIndex, -1); // terminar a mano no deja retomar
+    }
+
+    void interruptCapturesPosition() {
+        SessionTimerService timer;
+        QSignalSpy finishedSpy(&timer, &SessionTimerService::finished);
+        // Tras 1s la 1ª fase (Work) acaba y entra en el descanso (índice 1).
+        timer.startWithPhases({{Phase::Work, 1}, {Phase::ShortBreak, 60}, {Phase::Work, 60}}, {},
+                              {});
+        QTRY_VERIFY_WITH_TIMEOUT(timer.currentPhaseIndex() >= 1, 5000);
+        timer.interrupt();
+        QCOMPARE(timer.state(), State::Aborted);
+
+        const auto session = finishedSpy.takeFirst().at(0).value<StudySession>();
+        QCOMPARE(session.status, SessionStatus::Aborted);
+        QCOMPARE(session.resumePhaseIndex, 1);     // cortada en el descanso
+        QVERIFY(session.resumeElapsedSec >= 0);
+        QCOMPARE(session.actualSeconds, 1);        // solo el bloque Work ya completado
+    }
+
+    void resumeStartsAtSavedPosition() {
+        SessionTimerService timer;
+        // Reanudar en la 3ª fase (índice 2, Work) con 40 s ya consumidos.
+        timer.startWithPhases({{Phase::Work, 100}, {Phase::ShortBreak, 50}, {Phase::Work, 100}}, {},
+                              {}, {}, 0, /*resumePhaseIndex=*/2, /*resumePhaseElapsedSec=*/40);
+        QCOMPARE(timer.currentPhaseIndex(), 2);
+        QCOMPARE(timer.phase(), Phase::Work);
+        QVERIFY(qAbs(timer.remainingSeconds() - 60) <= 1);    // 100 - 40
+        QVERIFY(qAbs(timer.elapsedWorkSeconds() - 140) <= 1); // Work previa (100) + 40
+    }
+
     void cannotStartTwice() {
         SessionTimerService timer;
         timer.startWithPhases({{Phase::Work, 60}}, {}, {});

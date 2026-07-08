@@ -12,8 +12,16 @@ qt_add_executable(pass WIN32
     views/NotesView.cpp
     views/DashboardView.h
     views/DashboardView.cpp
+    views/SettingsView.h
+    views/SettingsView.cpp
+    views/SubjectAdminView.h
+    views/SubjectAdminView.cpp
     widgets/EventDialog.h
     widgets/EventDialog.cpp
+    widgets/GoogleCredentialsDialog.h
+    widgets/GoogleCredentialsDialog.cpp
+    widgets/ActivityCalendarWidget.h
+    widgets/ActivityCalendarWidget.cpp
     models/SessionTableModel.h
     models/SessionTableModel.cpp
     widgets/SessionSetupDialog.h
@@ -24,6 +32,8 @@ qt_add_executable(pass WIN32
     widgets/TimerWidget.cpp
     util/SubjectUtil.h
     util/SubjectUtil.cpp
+    util/SessionPlanner.h
+    util/SessionPlanner.cpp
 )
 
 target_link_libraries(pass PRIVATE passcore Qt6::Widgets Qt6::Charts)

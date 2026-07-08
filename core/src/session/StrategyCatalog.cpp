@@ -24,11 +24,19 @@ QList<SessionPlan> proposals(int targetMinutes, const QList<PomodoroStrategy>& s
 
         // Añade ciclos mientras quepan: el descanso solo cuenta si después
         // viene otro bloque de trabajo.
+        //
+        // Defensa en profundidad (CWE-835): un descanso negativo de una
+        // estrategia corrupta o sincronizada haría `next <= 0`, `total` dejaría
+        // de crecer y el bucle no terminaría nunca, congelando la GUI. Exigimos
+        // `next > 0` para progresar y acotamos los ciclos con un tope duro, de
+        // modo que ningún dato de entrada pueda colgar el cálculo aunque la
+        // validación previa (SyncSerializer) fallara.
+        constexpr int kMaxCycles = 1000; // ninguna sesión real se acerca
         int cycles = 1;
         int total = s.workMinutes;
-        while (true) {
+        while (cycles < kMaxCycles) {
             const int next = breakAfter(s, cycles) + s.workMinutes;
-            if (total + next > targetMinutes)
+            if (next <= 0 || total + next > targetMinutes)
                 break;
             total += next;
             ++cycles;

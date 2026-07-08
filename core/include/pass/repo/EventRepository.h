@@ -21,6 +21,15 @@ public:
     bool update(const CalendarEvent& event);
     bool remove(const QUuid& id);
 
+    // Fila espejo de un evento remoto, por (provider, external_id).
+    std::optional<CalendarEvent> byExternalId(const QString& provider,
+                                              const QString& externalId) const;
+    // Inserta o actualiza la fila espejo identificada por (provider, external_id).
+    // Conserva el id local si ya existía; si no, asigna uno nuevo. Devuelve false
+    // si falla. No emite señales (eso es responsabilidad del provider/servicio).
+    bool upsertByExternalId(const CalendarEvent& event);
+    bool removeByExternalId(const QString& provider, const QString& externalId);
+
 private:
     QSqlDatabase m_db;
 };

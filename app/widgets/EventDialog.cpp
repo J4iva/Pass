@@ -6,6 +6,7 @@
 #include <QDateEdit>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -14,11 +15,12 @@
 
 using namespace pass;
 
-EventDialog::EventDialog(SubjectRepository& subjects, const QDate& defaultDate, QWidget* parent)
-    : QDialog(parent), m_title(new QLineEdit), m_allDay(new QCheckBox(tr("Todo el día"))),
-      m_date(new QDateEdit(defaultDate)), m_start(new QTimeEdit(QTime(9, 0))),
-      m_end(new QTimeEdit(QTime(10, 0))), m_subject(new QComboBox),
-      m_description(new QPlainTextEdit) {
+EventDialog::EventDialog(SubjectRepository& subjects, TopicRepository& topics,
+                         const QDate& defaultDate, bool offerGoogleUpload, QWidget* parent)
+    : QDialog(parent), m_topics(topics), m_title(new QLineEdit),
+      m_allDay(new QCheckBox(tr("Todo el día"))), m_date(new QDateEdit(defaultDate)),
+      m_start(new QTimeEdit(QTime(9, 0))), m_end(new QTimeEdit(QTime(10, 0))),
+      m_subject(new QComboBox), m_description(new QPlainTextEdit), m_topicHint(new QLabel) {
     setWindowTitle(tr("Evento"));
     setMinimumWidth(400);
 
@@ -30,6 +32,10 @@ EventDialog::EventDialog(SubjectRepository& subjects, const QDate& defaultDate, 
     for (const auto& s : m_subjectList)
         m_subject->addItem(s.name);
 
+    m_topicHint->setWordWrap(true);
+    m_topicHint->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+    m_topicHint->hide();
+
     auto* form = new QFormLayout;
     form->addRow(tr("Título"), m_title);
     form->addRow(QString(), m_allDay);
@@ -38,6 +44,17 @@ EventDialog::EventDialog(SubjectRepository& subjects, const QDate& defaultDate, 
     form->addRow(tr("Fin"), m_end);
     form->addRow(tr("Asignatura"), m_subject);
     form->addRow(tr("Notas"), m_description);
+    form->addRow(QString(), m_topicHint);
+
+    // Al cambiar la asignatura, refrescar la lista de temas sugeridos.
+    connect(m_subject, &QComboBox::currentIndexChanged, this, &EventDialog::updateTopicHint);
+    updateTopicHint();
+
+    if (offerGoogleUpload) {
+        m_googleUpload = new QCheckBox(tr("Crear también en Google Calendar"));
+        m_googleUpload->setChecked(true); // marcado por defecto
+        form->addRow(QString(), m_googleUpload);
+    }
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -52,9 +69,24 @@ EventDialog::EventDialog(SubjectRepository& subjects, const QDate& defaultDate, 
     layout->addWidget(buttons);
 }
 
+void EventDialog::setTaskMode(bool task) {
+    m_taskMode = task;
+    setWindowTitle(task ? tr("Tarea") : tr("Evento"));
+    if (task) {
+        m_title->setPlaceholderText(tr("Entrega práctica 2, examen parcial..."));
+        m_description->setPlaceholderText(tr("Tema o temas: tema 3, integrales..."));
+    } else {
+        m_title->setPlaceholderText(QString());
+        m_description->setPlaceholderText(QString());
+    }
+}
+
 void EventDialog::loadEvent(const CalendarEvent& event) {
     m_base = event;
-    m_title->setText(event.title);
+    // Si lo que se edita ya es una tarea, se entra en modo tarea y el título se
+    // muestra sin el prefijo "[T]" (se vuelve a añadir al guardar).
+    setTaskMode(isTask(event));
+    m_title->setText(taskDisplayTitle(event));
     m_allDay->setChecked(event.allDay);
     const QDateTime startLocal = event.startUtc.toLocalTime();
     m_date->setDate(startLocal.date());
@@ -72,6 +104,8 @@ void EventDialog::loadEvent(const CalendarEvent& event) {
 CalendarEvent EventDialog::result() const {
     CalendarEvent e = m_base;
     e.title = m_title->text().trimmed();
+    if (m_taskMode)
+        e.title = kTaskTitlePrefix + QLatin1Char(' ') + e.title;
     e.description = m_description->toPlainText().trimmed();
     e.allDay = m_allDay->isChecked();
 
@@ -86,17 +120,45 @@ CalendarEvent EventDialog::result() const {
 
     const int idx = m_subject->currentIndex() - 1;
     e.subjectId = (idx >= 0 && idx < m_subjectList.size()) ? m_subjectList[idx].id : QUuid();
+
+    // Si el usuario marcó "crear también en Google", la fila pasa a provider
+    // 'google' y CalendarService la subirá (write-through). Nada se sube
+    // retroactivamente: solo aplica al alta de un evento nuevo.
+    if (m_googleUpload && m_googleUpload->isChecked())
+        e.provider = QStringLiteral("google");
     return e;
 }
 
 void EventDialog::accept() {
     if (m_title->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, tr("Evento"), tr("El título no puede estar vacío."));
+        QMessageBox::warning(this, windowTitle(), tr("El título no puede estar vacío."));
         return;
     }
     if (!m_allDay->isChecked() && m_end->time() <= m_start->time()) {
-        QMessageBox::warning(this, tr("Evento"), tr("La hora de fin debe ser posterior a la de inicio."));
+        QMessageBox::warning(this, windowTitle(),
+                             tr("La hora de fin debe ser posterior a la de inicio."));
+        return;
+    }
+    if (m_taskMode && m_subject->currentIndex() <= 0) {
+        QMessageBox::warning(this, windowTitle(),
+                             tr("Una tarea necesita una asignatura asociada."));
         return;
     }
     QDialog::accept();
+}
+
+void EventDialog::updateTopicHint() {
+    const int idx = m_subject->currentIndex() - 1; // -1 por "(ninguna)"
+    QStringList names;
+    if (idx >= 0 && idx < m_subjectList.size()) {
+        for (const auto& t : m_topics.bySubject(m_subjectList[idx].id))
+            names << t.name;
+    }
+    if (names.isEmpty()) {
+        m_topicHint->clear();
+        m_topicHint->hide();
+    } else {
+        m_topicHint->setText(tr("Temas de la asignatura: %1").arg(names.join(QStringLiteral(", "))));
+        m_topicHint->show();
+    }
 }

@@ -32,19 +32,31 @@ public:
 
     explicit SessionTimerService(QObject* parent = nullptr);
 
-    void start(const SessionPlan& plan, const QUuid& subjectId, const QString& topic);
+    // Desglosa un plan en su secuencia de fases (Work/descansos, sin descanso
+    // final). Compartido para reconstruir/medir una sesión fuera del servicio.
+    static QList<PhaseSpec> phasesFor(const SessionPlan& plan);
+
+    // resumePhaseIndex/resumePhaseElapsedSec permiten reanudar una sesión
+    // interrumpida en la fase y segundo exactos (por defecto, empezar de cero).
+    void start(const SessionPlan& plan, const QUuid& subjectId, const QString& topic,
+               int resumePhaseIndex = 0, int resumePhaseElapsedSec = 0);
     // Seam para tests: permite fases de segundos en lugar de minutos.
     void startWithPhases(QList<PhaseSpec> phases, const QUuid& subjectId, const QString& topic,
-                         const QUuid& strategyId = {}, int plannedMinutes = 0);
+                         const QUuid& strategyId = {}, int plannedMinutes = 0,
+                         int resumePhaseIndex = 0, int resumePhaseElapsedSec = 0);
 
     void pause();
     void resume();
-    void abort(); // termina la sesión registrando el trabajo acumulado
+    void abort();     // termina la sesión a mano (definitiva, no retomable)
+    void interrupt(); // interrupción involuntaria: guarda la posición para retomar
 
     State state() const { return m_state; }
     Phase phase() const;
     int remainingSeconds() const;
     int elapsedWorkSeconds() const;
+    // Posición actual, para persistir el progreso al interrumpir.
+    int currentPhaseIndex() const { return m_phaseIndex; }
+    int currentPhaseElapsedSeconds() const { return int(phaseElapsedMs() / 1000); }
 
 signals:
     void tick(int remainingSeconds, pass::SessionTimerService::Phase phase);

@@ -17,6 +17,9 @@ public:
     using QObject::QObject;
 
     virtual QString providerId() const = 0;
+    // ¿Se puede subir un evento nuevo a un proveedor remoto (Google conectado)?
+    // La vista lo usa para ofrecer (o no) el check "crear también en Google".
+    virtual bool canUploadToRemote() const { return false; }
     virtual QList<CalendarEvent> eventsBetween(const QDateTime& fromUtc,
                                                const QDateTime& toUtc) = 0;
     // Asigna id/updatedAt al evento si procede. Devuelve false si falla.

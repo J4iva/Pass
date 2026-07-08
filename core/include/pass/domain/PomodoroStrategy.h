@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QDateTime>
 #include <QString>
 #include <QUuid>
 
@@ -14,6 +15,7 @@ struct PomodoroStrategy {
     int longBreakMinutes = 15;
     int cyclesBeforeLongBreak = 4;
     bool builtin = false;
+    QDateTime updatedAt; // UTC; marca de última escritura (sync entre dispositivos)
 };
 
 } // namespace pass

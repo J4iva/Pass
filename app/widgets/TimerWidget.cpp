@@ -75,7 +75,7 @@ void TimerWidget::onStateChanged(Service::State state) {
         m_phase->setText(tr("Sesión terminada antes de tiempo"));
         m_phase->setStyleSheet(QString());
     } else if (state == Service::State::Idle) {
-        m_phase->setText(tr("Listo para estudiar"));
+        m_phase->setText(tr("Listo para trabajar"));
         m_phase->setStyleSheet(QString());
     }
 }

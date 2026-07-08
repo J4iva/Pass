@@ -8,8 +8,7 @@ SessionTimerService::SessionTimerService(QObject* parent) : QObject(parent) {
     connect(&m_uiTimer, &QTimer::timeout, this, &SessionTimerService::onTick);
 }
 
-void SessionTimerService::start(const SessionPlan& plan, const QUuid& subjectId,
-                                const QString& topic) {
+QList<SessionTimerService::PhaseSpec> SessionTimerService::phasesFor(const SessionPlan& plan) {
     QList<PhaseSpec> phases;
     for (int cycle = 1; cycle <= plan.cycles; ++cycle) {
         phases.append({Phase::Work, plan.strategy.workMinutes * 60});
@@ -21,21 +20,34 @@ void SessionTimerService::start(const SessionPlan& plan, const QUuid& subjectId,
                        (longBreak ? plan.strategy.longBreakMinutes : plan.strategy.breakMinutes) *
                            60});
     }
-    startWithPhases(std::move(phases), subjectId, topic, plan.strategy.id, plan.totalMinutes);
+    return phases;
+}
+
+void SessionTimerService::start(const SessionPlan& plan, const QUuid& subjectId,
+                                const QString& topic, int resumePhaseIndex,
+                                int resumePhaseElapsedSec) {
+    startWithPhases(phasesFor(plan), subjectId, topic, plan.strategy.id, plan.totalMinutes,
+                    resumePhaseIndex, resumePhaseElapsedSec);
 }
 
 void SessionTimerService::startWithPhases(QList<PhaseSpec> phases, const QUuid& subjectId,
                                           const QString& topic, const QUuid& strategyId,
-                                          int plannedMinutes) {
+                                          int plannedMinutes, int resumePhaseIndex,
+                                          int resumePhaseElapsedSec) {
     if (m_state == State::Running || m_state == State::Paused)
         return;
     if (phases.isEmpty())
         return;
 
     m_phases = std::move(phases);
-    m_phaseIndex = 0;
-    m_accumPhaseMs = 0;
+    // Reanudación: situarse en la fase guardada y recomponer el trabajo ya hecho
+    // (suma de las fases Work anteriores). Por defecto (0, 0) empieza de cero.
+    m_phaseIndex = qBound(0, resumePhaseIndex, int(m_phases.size()) - 1);
+    m_accumPhaseMs = qint64(qMax(0, resumePhaseElapsedSec)) * 1000;
     m_workMs = 0;
+    for (int i = 0; i < m_phaseIndex; ++i)
+        if (m_phases[i].phase == Phase::Work)
+            m_workMs += qint64(m_phases[i].seconds) * 1000;
 
     m_session = StudySession{};
     m_session.id = QUuid::createUuid();
@@ -48,8 +60,8 @@ void SessionTimerService::startWithPhases(QList<PhaseSpec> phases, const QUuid& 
     m_elapsed.start();
     m_uiTimer.start();
     setState(State::Running);
-    emit phaseChanged(m_phases.first().phase);
-    emit tick(remainingSeconds(), m_phases.first().phase);
+    emit phaseChanged(m_phases[m_phaseIndex].phase);
+    emit tick(remainingSeconds(), m_phases[m_phaseIndex].phase);
 }
 
 void SessionTimerService::pause() {
@@ -75,6 +87,28 @@ void SessionTimerService::abort() {
         return;
     if (m_phases[m_phaseIndex].phase == Phase::Work)
         m_workMs += phaseElapsedMs();
+    finish(SessionStatus::Aborted);
+}
+
+void SessionTimerService::interrupt() {
+    if (m_state != State::Running && m_state != State::Paused)
+        return;
+    const int idx = m_phaseIndex;
+    const qint64 elapsedMs = phaseElapsedMs();
+    const qint64 totalMs = qint64(m_phases[idx].seconds) * 1000;
+    const bool lastPhase = idx == m_phases.size() - 1;
+    if (lastPhase && elapsedMs >= totalMs) {
+        // No queda tiempo: equivale a completar la sesión (no retomable).
+        if (m_phases[idx].phase == Phase::Work)
+            m_workMs += totalMs;
+        finish(SessionStatus::Completed);
+        return;
+    }
+    // Retomable: registrar el trabajo hecho y guardar la posición exacta.
+    if (m_phases[idx].phase == Phase::Work)
+        m_workMs += elapsedMs;
+    m_session.resumePhaseIndex = idx;
+    m_session.resumeElapsedSec = int(elapsedMs / 1000);
     finish(SessionStatus::Aborted);
 }
 

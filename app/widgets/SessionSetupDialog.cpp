@@ -13,18 +13,20 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
 using namespace pass;
 
-SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
-                                       StrategyRepository& strategies, QWidget* parent)
-    : QDialog(parent), m_subjects(subjects), m_strategies(strategies),
-      m_minutes(new QSpinBox), m_subject(new QComboBox), m_topic(new QLineEdit),
+SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects, TopicRepository& topics,
+                                       StrategyRepository& strategies,
+                                       const QList<CalendarEvent>& tasks, QWidget* parent)
+    : QDialog(parent), m_subjects(subjects), m_topics(topics), m_strategies(strategies),
+      m_tasks(tasks), m_minutes(new QSpinBox), m_subject(new QComboBox), m_topic(new QComboBox),
       m_proposals(new QListWidget), m_planLater(new QCheckBox(tr("Planificar para más tarde"))),
       m_plannedStart(new QDateTimeEdit(QDateTime::currentDateTime().addSecs(3600))) {
-    setWindowTitle(tr("Nueva sesión de estudio"));
+    setWindowTitle(tr("Nueva sesión de trabajo"));
     setMinimumWidth(420);
 
     m_minutes->setRange(15, 480);
@@ -37,10 +39,34 @@ SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
     for (const auto& s : m_subjects.all())
         m_subject->addItem(s.name);
 
-    m_topic->setPlaceholderText(tr("Tema (opcional): integrales, tema 4..."));
+    m_topic->setEditable(true);
+    m_topic->setInsertPolicy(QComboBox::NoInsert);
+    if (auto* edit = m_topic->lineEdit())
+        edit->setPlaceholderText(tr("Tema (opcional): integrales, tema 4..."));
+    reloadTopics();
+    // Al cambiar la asignatura (también al elegir una tarea), mostrar sus temas.
+    connect(m_subject, &QComboBox::currentTextChanged, this, &SessionSetupDialog::reloadTopics);
 
     auto* form = new QFormLayout;
-    form->addRow(tr("¿Cuánto quieres estudiar?"), m_minutes);
+    form->addRow(tr("¿Cuánto quieres trabajar?"), m_minutes);
+    if (!m_tasks.isEmpty()) {
+        m_task = new QComboBox;
+        m_task->addItem(tr("(ninguna)"));
+        for (const auto& t : m_tasks)
+            m_task->addItem(QStringLiteral("📋 %1 (%2)")
+                                .arg(taskDisplayTitle(t),
+                                     t.startUtc.toLocalTime().toString(QStringLiteral("dd/MM"))));
+        // Elegir una tarea precarga su asignatura (las horas de la sesión se
+        // sumarán a esa tarea en el dashboard).
+        connect(m_task, &QComboBox::currentIndexChanged, this, [this](int idx) {
+            const int i = idx - 1;
+            if (i < 0 || i >= m_tasks.size())
+                return;
+            if (const auto subject = m_subjects.byId(m_tasks[i].subjectId))
+                m_subject->setCurrentText(subject->name);
+        });
+        form->addRow(tr("Tarea"), m_task);
+    }
     form->addRow(tr("Asignatura"), m_subject);
     form->addRow(tr("Tema"), m_topic);
 
@@ -74,6 +100,17 @@ SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects,
     refreshProposals();
 }
 
+void SessionSetupDialog::setPlanOnly(const QDate& date) {
+    setWindowTitle(tr("Planificar sesión"));
+    // Marcar el check ajusta el texto del botón y habilita la fecha (vía toggled);
+    // luego lo ocultamos para que no se pueda volver a "empezar ya".
+    m_planLater->setChecked(true);
+    m_planLater->hide();
+    QDateTime when = m_plannedStart->dateTime();
+    when.setDate(date);
+    m_plannedStart->setDateTime(when);
+}
+
 void SessionSetupDialog::refreshProposals() {
     m_plans = StrategyCatalog::proposals(m_minutes->value(), m_strategies.all());
     m_proposals->clear();
@@ -98,11 +135,50 @@ QUuid SessionSetupDialog::resolveSubjectId() {
 }
 
 QString SessionSetupDialog::topic() const {
-    return m_topic->text().trimmed();
+    return m_topic->currentText().trimmed();
+}
+
+void SessionSetupDialog::reloadTopics() {
+    // Conserva lo que el usuario hubiera escrito mientras se repuebla la lista.
+    const QString current = m_topic->currentText();
+    QSignalBlocker blocker(m_topic);
+    m_topic->clear();
+    m_topic->addItem(QString());
+    const QString name = m_subject->currentText().trimmed();
+    if (!name.isEmpty()) {
+        for (const auto& s : m_subjects.all(/*includeArchived=*/true)) {
+            if (s.name.compare(name, Qt::CaseInsensitive) == 0) {
+                for (const auto& t : m_topics.bySubject(s.id))
+                    m_topic->addItem(t.name);
+                break;
+            }
+        }
+    }
+    m_topic->setCurrentText(current);
+}
+
+void SessionSetupDialog::accept() {
+    // Mantiene asignaturas y temas consistentes con el resto de la app: crea los
+    // que el usuario haya escrito y no existieran todavía.
+    const QString subjectName = m_subject->currentText().trimmed();
+    const QString topicName = topic();
+    if (!subjectName.isEmpty() && !topicName.isEmpty()) {
+        const QUuid subjectId = util::ensureSubject(m_subjects, subjectName);
+        if (!subjectId.isNull())
+            util::ensureTopic(m_topics, subjectId, topicName);
+    }
+    QDialog::accept();
 }
 
 std::optional<QDateTime> SessionSetupDialog::plannedStart() const {
     if (!m_planLater->isChecked())
         return std::nullopt;
     return m_plannedStart->dateTime();
+}
+
+QUuid SessionSetupDialog::selectedTaskId() const {
+    if (!m_task)
+        return {};
+    const int i = m_task->currentIndex() - 1; // -1 por "(ninguna)"
+    return (i >= 0 && i < m_tasks.size()) ? m_tasks[i].id : QUuid();
 }

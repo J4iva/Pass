@@ -19,6 +19,22 @@
 
 using namespace pass;
 
+namespace {
+
+// Adapta la gráfica a la paleta de la app: con tema oscuro de Windows, QChart
+// se queda blanco por defecto (ChartThemeLight). Debe llamarse JUSTO después de
+// crear el QChart: setTheme machaca cualquier personalización previa.
+void applyPaletteTheme(QChart* chart, const QPalette& palette) {
+    const bool dark = palette.color(QPalette::Window).lightness() < 128;
+    if (dark)
+        chart->setTheme(QChart::ChartThemeDark);
+    // Sin fondo propio: se funde con el fondo de la vista (claro u oscuro).
+    chart->setBackgroundVisible(false);
+    chart->setTitleBrush(palette.color(QPalette::WindowText));
+}
+
+} // namespace
+
 StatsView::StatsView(Database& db, QWidget* parent)
     : QWidget(parent), m_stats(db.handle()), m_sessions(db.handle()), m_subjects(db.handle()),
       m_summary(new QLabel), m_subjectChart(new QChartView), m_dailyChart(new QChartView),
@@ -77,6 +93,7 @@ void StatsView::rebuildSubjectChart(const QList<SubjectHours>& rows) {
     series->append(set);
 
     auto* chart = new QChart;
+    applyPaletteTheme(chart, palette());
     chart->addSeries(series);
     chart->setTitle(tr("Horas por asignatura"));
     chart->legend()->hide();
@@ -106,6 +123,7 @@ void StatsView::rebuildDailyChart(const QList<DailyMinutes>& series) {
     }
 
     auto* chart = new QChart;
+    applyPaletteTheme(chart, palette());
     chart->addSeries(line);
     chart->setTitle(tr("Minutos de trabajo (últimos 30 días)"));
     chart->legend()->hide();

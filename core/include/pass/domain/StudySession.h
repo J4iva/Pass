@@ -23,6 +23,11 @@ struct StudySession {
     QDateTime endedAt;   // siempre UTC
     SessionStatus status = SessionStatus::Planned;
     QUuid linkedEventId; // evento de calendario asociado, si lo hay
+    QDateTime updatedAt; // UTC; marca de última escritura (sync entre dispositivos)
+    // Progreso para retomar una sesión interrumpida (status Aborted con tiempo
+    // restante). resumePhaseIndex = -1 significa "no retomable".
+    int resumePhaseIndex = -1; // índice de fase donde se cortó
+    int resumeElapsedSec = 0;  // segundos ya consumidos en esa fase
 };
 
 } // namespace pass

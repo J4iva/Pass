@@ -4,6 +4,7 @@
 #include "../widgets/NewNoteDialog.h"
 
 #include "pass/repo/SubjectRepository.h"
+#include "pass/repo/TopicRepository.h"
 
 #include <QFileDialog>
 #include <QFrame>
@@ -260,10 +261,13 @@ void NotesView::saveCurrent() {
 
 void NotesView::newNote() {
     std::unique_ptr<SubjectRepository> subjects;
-    if (m_db && m_db->isOpen())
+    std::unique_ptr<TopicRepository> topics;
+    if (m_db && m_db->isOpen()) {
         subjects = std::make_unique<SubjectRepository>(m_db->handle());
+        topics = std::make_unique<TopicRepository>(m_db->handle());
+    }
 
-    NewNoteDialog dialog(subjects.get(), this);
+    NewNoteDialog dialog(subjects.get(), topics.get(), this);
     if (dialog.exec() != QDialog::Accepted)
         return;
 
