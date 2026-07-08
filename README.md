@@ -34,7 +34,13 @@
 
 ## Screenshots
 
-<!-- Consider adding screenshots here -->
+| Dashboard | Calendar |
+|:---:|:---:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Calendar](docs/screenshots/calendar.png) |
+| **Notes** | **Study Sessions** |
+| ![Notes](docs/screenshots/notes.png) | ![Study](docs/screenshots/study.png) |
+| **Statistics** | **Settings** |
+| ![Stats](docs/screenshots/stats.png) | ![Settings](docs/screenshots/settings.png) |
 
 ## Features
 
