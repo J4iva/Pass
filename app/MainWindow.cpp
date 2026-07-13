@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainWindow.h"
 
+#include "theme/DotIcon.h"
+#include "theme/Theme.h"
 #include "pass/Version.h"
 #include "pass/notes/VaultService.h"
 #include "pass/notes/VaultWatcher.h"
@@ -10,18 +12,84 @@
 #include "views/SettingsView.h"
 #include "views/StatsView.h"
 #include "views/StudyView.h"
+#include "widgets/ScanlineOverlay.h"
 
+#include <QApplication>
+#include <QAction>
+#include <QByteArray>
 #include <QCloseEvent>
 #include <QDesktopServices>
 #include <QDir>
 #include <QHBoxLayout>
+#include <QKeySequence>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPainter>
+#include <QShowEvent>
 #include <QStackedWidget>
+#include <QStyledItemDelegate>
+#include <QStyleOptionViewItem>
 #include <QUrl>
+#include <QVBoxLayout>
+
+using namespace pass;
 
 namespace {
+
+constexpr int kGlyphRole = Qt::UserRole + 1;
+
+// Sidebar brutalista: cada item lleva un glifo de dots + etiqueta en mayusculas.
+// Activo = barra roja izquierda + glifo/texto a fosforo; inactivo = tenue.
+class NavDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter* p, const QStyleOptionViewItem& opt,
+               const QModelIndex& index) const override {
+        p->save();
+        const QRect r = opt.rect;
+
+        // Fondo (hover suave; la seleccion no lleva fondo, solo la barra roja).
+        if (opt.state & QStyle::State_MouseOver)
+            p->fillRect(r, theme::kBgElev);
+        else
+            p->fillRect(r, theme::kBg);
+
+        const bool selected = opt.state & QStyle::State_Selected;
+        const QColor color = selected ? theme::kFg : theme::kFgDim;
+
+        // Barra roja de activo.
+        if (selected) {
+            p->fillRect(QRect(r.left(), r.top(), 3, r.height()), theme::kAccent);
+        }
+
+        // Glifo de navegacion.
+        const auto glyph = static_cast<theme::Glyph>(index.data(kGlyphRole).toInt());
+        const int iconPx = 18;
+        theme::paintGlyph(p, glyph,
+                          QRect(r.left() + 16, r.center().y() - iconPx / 2, iconPx, iconPx), color);
+
+        // Etiqueta en mayusculas.
+        p->setPen(color);
+        QFont f = opt.font;
+        f.setLetterSpacing(QFont::PercentageSpacing, 108);
+        // ClearType subpixel -> suaviza overshoot de glifos redondos (C,O,S)
+        // vs planos (A,L,T) que con grayscale-only anclaban a filas distintas.
+        f.setStyleStrategy(QFont::StyleStrategy(f.styleStrategy()
+                                                & ~QFont::NoSubpixelAntialias));
+        p->setFont(f);
+
+        p->drawText(QRect(r.left() + 44, r.top(), r.width() - 44, r.height()),
+                    Qt::AlignVCenter | Qt::AlignLeft,
+                    index.data(Qt::DisplayRole).toString().toUpper());
+        p->restore();
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem& opt, const QModelIndex& /*index*/) const override {
+        return QSize(180, qMax(34, opt.fontMetrics.height() + 18));
+    }
+};
 
 QWidget* placeholderPage(const QString& text) {
     auto* page = new QWidget;
@@ -39,11 +107,15 @@ MainWindow::MainWindow(QWidget* parent)
       m_tokenStore(std::make_unique<pass::WinCredTokenStore>()),
       m_timer(new pass::SessionTimerService(this)), m_sidebar(new QListWidget),
       m_pages(new QStackedWidget) {
-    setWindowTitle(tr("Pass %1").arg(pass::appVersion()));
+    setWindowTitle(QStringLiteral("[ PASS ] %1").arg(pass::appVersion()));
     resize(1100, 720);
 
+    m_sidebar->setObjectName("sidebar");
     m_sidebar->setFixedWidth(180);
     m_sidebar->setFrameShape(QFrame::NoFrame);
+    m_sidebar->setItemDelegate(new NavDelegate(m_sidebar));
+    m_sidebar->viewport()->setMouseTracking(true);
+    m_sidebar->setAttribute(Qt::WA_Hover, true);
 
     const bool dbOk = m_db->isOpen();
     const auto unavailable = [&] { return placeholderPage(tr("Base de datos no disponible")); };
@@ -105,42 +177,71 @@ MainWindow::MainWindow(QWidget* parent)
     }
 
     m_dashboardView = dbOk ? new DashboardView(*m_db, m_calendar) : nullptr;
-    addPage(tr("Dashboard"), dbOk ? static_cast<QWidget*>(m_dashboardView)
-                                  : placeholderPage(tr("Dashboard — próximamente")));
+    addPage(tr("Dashboard"), theme::Glyph::Grid,
+            dbOk ? static_cast<QWidget*>(m_dashboardView)
+                 : placeholderPage(tr("Dashboard - próximamente")));
 
     if (dbOk) {
         m_calendarView = new CalendarView(*m_db, m_calendar);
-        addPage(tr("Calendario"), m_calendarView);
+        addPage(tr("Calendario"), theme::Glyph::Calendar, m_calendarView);
     } else {
-        addPage(tr("Calendario"), unavailable());
+        addPage(tr("Calendario"), theme::Glyph::Calendar, unavailable());
     }
 
-    addPage(tr("Notas"), new NotesView(dbOk ? m_db.get() : nullptr));
+    addPage(tr("Notas"), theme::Glyph::Note, new NotesView(dbOk ? m_db.get() : nullptr));
 
     if (dbOk) {
         m_studyView = new StudyView(*m_db, m_timer, m_calendar);
-        addPage(tr("Sesiones"), m_studyView);
+        addPage(tr("Sesiones"), theme::Glyph::Clock, m_studyView);
     } else {
-        addPage(tr("Sesiones"), unavailable());
+        addPage(tr("Sesiones"), theme::Glyph::Clock, unavailable());
     }
 
     m_statsView = dbOk ? new StatsView(*m_db) : nullptr;
-    addPage(tr("Estadísticas"), dbOk ? static_cast<QWidget*>(m_statsView) : unavailable());
+    addPage(tr("Estadísticas"), theme::Glyph::Bars,
+            dbOk ? static_cast<QWidget*>(m_statsView) : unavailable());
 
-    addPage(tr("Ajustes"),
+    addPage(tr("Ajustes"), theme::Glyph::Sliders,
             new SettingsView(*m_auth, m_sync, m_gitSync, &m_settings,
                              dbOk ? m_db->handle() : QSqlDatabase(), m_calendar));
 
     connect(m_sidebar, &QListWidget::currentRowChanged, m_pages, &QStackedWidget::setCurrentIndex);
     m_sidebar->setCurrentRow(0);
+    // Affordance de dev para capturar vistas concretas: PASS_START_PAGE=N.
+    if (const auto env = qgetenv("PASS_START_PAGE"); !env.isEmpty()) {
+        bool ok = false;
+        const int row = env.toInt(&ok);
+        if (ok && row >= 0 && row < m_sidebar->count())
+            m_sidebar->setCurrentRow(row);
+    }
+
+    // Panel del sidebar con cabecera ASCII.
+    auto* sidebarPanel = new QWidget;
+    sidebarPanel->setObjectName("sidebarPanel");
+    auto* sideLayout = new QVBoxLayout(sidebarPanel);
+    sideLayout->setContentsMargins(0, 0, 0, 0);
+    sideLayout->setSpacing(0);
+    auto* header = new QLabel(QStringLiteral("[ PASS ]"));
+    header->setObjectName("sidebarHeader");
+    header->setFont(theme::displayFont(24));
+    sideLayout->addWidget(header);
+    sideLayout->addWidget(m_sidebar, 1);
 
     auto* central = new QWidget;
     auto* layout = new QHBoxLayout(central);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(m_sidebar);
+    layout->addWidget(sidebarPanel);
     layout->addWidget(m_pages, 1);
     setCentralWidget(central);
+
+    // Overlay de scanlines CRT (toggle Ctrl+L). Se muestra al presentar la ventana.
+    m_scanlines = new ScanlineOverlay(central);
+    auto* toggleScanlines = new QAction(this);
+    toggleScanlines->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_L));
+    connect(toggleScanlines, &QAction::triggered, this,
+            [this] { m_scanlines->setEnabled(!m_scanlines->enabled()); });
+    addAction(toggleScanlines);
 
     if (!dbOk) {
         QMessageBox::warning(this, tr("Pass"),
@@ -172,6 +273,12 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     QMainWindow::closeEvent(event);
 }
 
+void MainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+    if (m_scanlines)
+        m_scanlines->setEnabled(true);
+}
+
 void MainWindow::refreshDataViews() {
     if (m_dashboardView)
         m_dashboardView->refresh();
@@ -181,7 +288,8 @@ void MainWindow::refreshDataViews() {
         m_calendarView->refresh();
 }
 
-void MainWindow::addPage(const QString& title, QWidget* page) {
-    m_sidebar->addItem(title);
+void MainWindow::addPage(const QString& title, theme::Glyph glyph, QWidget* page) {
+    auto* item = new QListWidgetItem(title, m_sidebar);
+    item->setData(kGlyphRole, int(glyph));
     m_pages->addWidget(page);
 }

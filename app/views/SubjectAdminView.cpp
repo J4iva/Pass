@@ -5,6 +5,8 @@
 #include "pass/repo/SubjectRepository.h"
 #include "pass/repo/TopicRepository.h"
 #include "pass/settings/AppSettings.h"
+#include "pass/sync/DataChangeNotifier.h"
+#include "../theme/Theme.h"
 
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -36,7 +38,8 @@ SubjectAdminView::SubjectAdminView(QSqlDatabase db, AppSettings* settings,
     subjectButtons->addStretch();
 
     auto* subjectsCol = new QVBoxLayout;
-    subjectsCol->addWidget(new QLabel(tr("Asignaturas")));
+    subjectsCol->setContentsMargins(12, 12, 6, 12);
+    subjectsCol->addWidget(pass::theme::sectionLabel(tr("Asignaturas")));
     subjectsCol->addWidget(m_subjects, 1);
     subjectsCol->addLayout(subjectButtons);
 
@@ -51,6 +54,8 @@ SubjectAdminView::SubjectAdminView(QSqlDatabase db, AppSettings* settings,
     topicButtons->addStretch();
 
     auto* topicsCol = new QVBoxLayout;
+    topicsCol->setContentsMargins(6, 12, 12, 12);
+    m_topicsTitle->setObjectName("sectionLabel");
     topicsCol->addWidget(m_topicsTitle);
     topicsCol->addWidget(m_topics, 1);
     topicsCol->addLayout(topicButtons);
@@ -65,6 +70,8 @@ SubjectAdminView::SubjectAdminView(QSqlDatabase db, AppSettings* settings,
     connect(m_newTopic, &QPushButton::clicked, this, &SubjectAdminView::onNewTopic);
     connect(m_renameTopic, &QPushButton::clicked, this, &SubjectAdminView::onRenameTopic);
     connect(m_deleteTopic, &QPushButton::clicked, this, &SubjectAdminView::onDeleteTopic);
+    connect(&DataChangeNotifier::instance(), &DataChangeNotifier::changed,
+            this, &SubjectAdminView::refreshSubjects);
     connect(m_subjects, &QListWidget::currentRowChanged, this,
             [this] { refreshTopics(); });
     connect(m_topics, &QListWidget::currentRowChanged, this, [this] {

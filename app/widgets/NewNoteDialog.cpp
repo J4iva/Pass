@@ -40,7 +40,7 @@ NewNoteDialog::NewNoteDialog(pass::SubjectRepository* subjects, pass::TopicRepos
     auto* hint = new QLabel(tr("Rellena al menos uno. Con asignatura se crea una "
                                "plantilla de trabajo; sin ella, una nota libre."));
     hint->setWordWrap(true);
-    hint->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+    hint->setObjectName("hint");
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);

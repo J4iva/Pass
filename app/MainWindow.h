@@ -10,6 +10,7 @@
 #include "pass/session/SessionTimerService.h"
 #include "pass/settings/AppSettings.h"
 #include "pass/sync/GitSyncController.h"
+#include "theme/DotIcon.h"
 
 #include <QMainWindow>
 
@@ -19,6 +20,7 @@ class CalendarView;
 class DashboardView;
 class QListWidget;
 class QStackedWidget;
+class ScanlineOverlay;
 class StatsView;
 class StudyView;
 
@@ -35,9 +37,10 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
 private:
-    void addPage(const QString& title, QWidget* page);
+    void addPage(const QString& title, pass::theme::Glyph glyph, QWidget* page);
     void refreshDataViews(); // tras aplicar datos remotos sincronizados
 
     std::unique_ptr<pass::Database> m_db;
@@ -56,4 +59,5 @@ private:
     StudyView* m_studyView = nullptr;
     QListWidget* m_sidebar;
     QStackedWidget* m_pages;
+    ScanlineOverlay* m_scanlines = nullptr; // overlay CRT (toggle Ctrl+L)
 };

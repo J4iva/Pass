@@ -53,7 +53,7 @@ SessionSetupDialog::SessionSetupDialog(SubjectRepository& subjects, TopicReposit
         m_task = new QComboBox;
         m_task->addItem(tr("(ninguna)"));
         for (const auto& t : m_tasks)
-            m_task->addItem(QStringLiteral("📋 %1 (%2)")
+            m_task->addItem(QStringLiteral("[T] %1 (%2)")
                                 .arg(taskDisplayTitle(t),
                                      t.startUtc.toLocalTime().toString(QStringLiteral("dd/MM"))));
         // Elegir una tarea precarga su asignatura (las horas de la sesión se
@@ -116,7 +116,7 @@ void SessionSetupDialog::refreshProposals() {
     m_proposals->clear();
     for (const auto& plan : m_plans) {
         auto* item = new QListWidgetItem(
-            QStringLiteral("%1 — %2").arg(plan.strategy.name, StrategyCatalog::describe(plan)));
+            QStringLiteral("%1 // %2").arg(plan.strategy.name, StrategyCatalog::describe(plan)));
         m_proposals->addItem(item);
     }
     if (m_proposals->count() > 0)

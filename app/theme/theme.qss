@@ -1,0 +1,451 @@
+/* ===========================================================================
+   Pass - QSS global brutalista (Dark Tactical / CRT Terminal)
+   Monocromo + unico rojo TrackPoint. Cero radius, cero gradientes, cero
+   sombras, cero #000/#fff puros. Fuentes: JetBrains Mono (body) / VT323 (display).
+   =========================================================================== */
+
+/* --- Base ----------------------------------------------------------------- */
+QWidget {
+    background-color: #0A0A0A;
+    color: #EAEAEA;
+    border: 0;
+    border-radius: 0;
+}
+
+QMainWindow,
+QDialog,
+QFrame {
+    background-color: #0A0A0A;
+}
+
+QLabel {
+    background-color: transparent;
+    color: #EAEAEA;
+}
+QLabel:disabled {
+    color: #3A3A3A;
+}
+
+/* Cabeceras con framing ASCII + metadata tenue (consolida los inline repetidos). */
+#pageTitle {
+    color: #EAEAEA;
+    padding: 0 0 6px 0;
+}
+#sectionLabel {
+    color: #6E6E6E;
+    border-bottom: 1px solid #1F1F1F;
+    padding: 10px 0 5px 0;
+}
+#hint {
+    color: #6E6E6E;
+    font-size: 11px;
+}
+#dim {
+    color: #6E6E6E;
+}
+
+/* Strip rojo de alerta (conflicto de nota, errores criticos). */
+#conflictBar {
+    background-color: #DA291C;
+    border: 1px solid #DA291C;
+}
+#conflictBarText {
+    color: #EAEAEA;
+    font-weight: bold;
+}
+#errorText {
+    color: #DA291C;
+}
+
+/* --- Texto: areas de scroll (editores, listas, tablas, arboles) ----------- */
+QAbstractScrollArea,
+QTextEdit,
+QPlainTextEdit,
+QListView,
+QTreeView,
+QTableView {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    color: #EAEAEA;
+    selection-background-color: #DA291C;
+    selection-color: #EAEAEA;
+}
+QAbstractItemView::item {
+    border-radius: 0;
+    padding: 2px 4px;
+}
+QAbstractItemView::item:selected,
+QAbstractItemView::item:selected:!active {
+    background-color: #DA291C;
+    color: #EAEAEA;
+}
+QAbstractItemView::item:hover {
+    background-color: #121212;
+}
+
+/* --- Inputs --------------------------------------------------------------- */
+QLineEdit,
+QTextEdit,
+QPlainTextEdit,
+QSpinBox,
+QDoubleSpinBox,
+QComboBox,
+QDateEdit,
+QTimeEdit,
+QDateTimeEdit {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    color: #EAEAEA;
+    padding: 3px 5px;
+    selection-background-color: #DA291C;
+    selection-color: #EAEAEA;
+}
+QLineEdit:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QComboBox:focus,
+QDateEdit:focus,
+QTimeEdit:focus,
+QDateTimeEdit:focus {
+    border: 1px solid #DA291C;
+}
+QLineEdit:disabled,
+QSpinBox:disabled,
+QComboBox:disabled,
+QDateEdit:disabled,
+QTimeEdit:disabled {
+    color: #3A3A3A;
+    background-color: #0A0A0A;
+}
+
+/* Spinbox / date-time flechas */
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button,
+QDateEdit::up-button, QDateEdit::down-button,
+QTimeEdit::up-button, QTimeEdit::down-button,
+QDateTimeEdit::up-button, QDateTimeEdit::down-button {
+    background-color: #121212;
+    border: 0;
+    border-left: 1px solid #1F1F1F;
+    width: 14px;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDateEdit::up-button:hover, QDateEdit::down-button:hover,
+QTimeEdit::up-button:hover, QTimeEdit::down-button:hover,
+QDateTimeEdit::up-button:hover, QDateTimeEdit::down-button:hover {
+    background-color: #DA291C;
+}
+
+/* ComboBox */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 18px;
+    border: 0;
+    border-left: 1px solid #1F1F1F;
+    background-color: #121212;
+}
+QComboBox::drop-down:hover { background-color: #DA291C; }
+QComboBox QAbstractItemView {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    color: #EAEAEA;
+    selection-background-color: #DA291C;
+    selection-color: #EAEAEA;
+    outline: 0;
+}
+
+/* --- Botones -------------------------------------------------------------- */
+QPushButton {
+    background-color: #121212;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    color: #EAEAEA;
+    padding: 5px 12px;
+    min-height: 18px;
+}
+QPushButton:hover {
+    border: 1px solid #6E6E6E;
+    color: #EAEAEA;
+}
+QPushButton:pressed {
+    background-color: #DA291C;
+    border: 1px solid #DA291C;
+    color: #EAEAEA;
+}
+QPushButton:focus {
+    border: 1px solid #DA291C;
+    outline: 0;
+}
+QPushButton:disabled {
+    color: #3A3A3A;
+    border: 1px solid #1F1F1F;
+    background-color: #0A0A0A;
+}
+QPushButton:default {
+    border: 1px solid #DA291C;
+}
+
+/* --- Checkbox / Radio ----------------------------------------------------- */
+QCheckBox, QRadioButton {
+    background-color: transparent;
+    spacing: 6px;
+    color: #EAEAEA;
+}
+QCheckBox::indicator, QRadioButton::indicator {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    width: 12px;
+    height: 12px;
+}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border: 1px solid #6E6E6E;
+}
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background-color: #DA291C;
+    border: 1px solid #DA291C;
+}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+    background-color: #0A0A0A;
+    border: 1px solid #1F1F1F;
+}
+
+/* --- GroupBox (compartimentos) ------------------------------------------- */
+QGroupBox {
+    background-color: #0A0A0A;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    margin-top: 10px;
+    padding-top: 8px;
+    color: #EAEAEA;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 8px;
+    padding: 0 4px;
+    background-color: #0A0A0A;
+    color: #6E6E6E;
+}
+
+/* --- Sidebar / navegacion (QListWidget) ---------------------------------- */
+QListWidget#sidebar,
+QListWidget {
+    background-color: #0A0A0A;
+    border: 0;
+    border-right: 1px solid #1F1F1F;
+    border-radius: 0;
+    color: #EAEAEA;
+    outline: 0;
+}
+QListWidget::item {
+    border: 0;
+    border-left: 2px solid transparent;
+    padding: 6px 10px;
+    color: #6E6E6E;
+}
+QListWidget::item:hover {
+    color: #EAEAEA;
+    background-color: #121212;
+}
+QListWidget::item:selected {
+    background-color: #0A0A0A;
+    border-left: 2px solid #DA291C;
+    color: #EAEAEA;
+}
+
+/* Panel del sidebar (cabecera ASCII + lista). El delegate pinta los items. */
+#sidebarPanel {
+    background-color: #0A0A0A;
+    border-right: 1px solid #1F1F1F;
+}
+#sidebarHeader {
+    color: #EAEAEA;
+    padding: 16px 14px 14px 14px;
+    border-bottom: 1px solid #1F1F1F;
+}
+QListWidget#sidebar {
+    background-color: #0A0A0A;
+    border: 0;
+    outline: 0;
+}
+
+/* --- Tablas / cabeceras --------------------------------------------------- */
+QHeaderView::section {
+    background-color: #121212;
+    color: #6E6E6E;
+    border: 0;
+    border-right: 1px solid #1F1F1F;
+    border-bottom: 1px solid #1F1F1F;
+    padding: 4px 6px;
+}
+QTableView {
+    gridline-color: #1F1F1F;
+}
+QTableView::item:selected {
+    background-color: #DA291C;
+    color: #EAEAEA;
+}
+
+/* --- Splitter ------------------------------------------------------------- */
+QSplitter::handle {
+    background-color: #1F1F1F;
+}
+QSplitter::handle:horizontal { width: 1px; }
+QSplitter::handle:vertical { height: 1px; }
+
+/* --- Scrollbars (finas, mecanicas) --------------------------------------- */
+QScrollBar:vertical {
+    background-color: #0A0A0A;
+    border: 0;
+    border-left: 1px solid #1F1F1F;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar:horizontal {
+    background-color: #0A0A0A;
+    border: 0;
+    border-top: 1px solid #1F1F1F;
+    height: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical,
+QScrollBar::handle:horizontal {
+    background-color: #3A3A3A;
+    border: 0;
+    min-height: 24px;
+    min-width: 24px;
+}
+QScrollBar::handle:vertical:hover,
+QScrollBar::handle:horizontal:hover {
+    background-color: #DA291C;
+}
+QScrollBar::add-line, QScrollBar::sub-line,
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: none;
+    border: 0;
+    height: 0;
+    width: 0;
+}
+
+/* --- Tooltips ------------------------------------------------------------- */
+QToolTip {
+    background-color: #121212;
+    color: #EAEAEA;
+    border: 1px solid #1F1F1F;
+    padding: 3px 6px;
+}
+
+/* --- Menus contextuales --------------------------------------------------- */
+QMenu {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    color: #EAEAEA;
+    padding: 2px;
+}
+QMenu::item {
+    padding: 4px 18px;
+    border-radius: 0;
+}
+QMenu::item:selected {
+    background-color: #DA291C;
+    color: #EAEAEA;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #1F1F1F;
+    margin: 2px 6px;
+}
+
+/* --- MessageBox ----------------------------------------------------------- */
+QMessageBox {
+    background-color: #0A0A0A;
+}
+QMessageBox QLabel {
+    color: #EAEAEA;
+}
+
+/* --- ProgressDialog / ProgressBar ---------------------------------------- */
+QProgressBar {
+    background-color: #050505;
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+    text-align: center;
+    color: #EAEAEA;
+}
+QProgressBar::chunk {
+    background-color: #DA291C;
+}
+
+/* --- Slider --------------------------------------------------------------- */
+QSlider::groove:horizontal {
+    background-color: #1F1F1F;
+    height: 2px;
+    border: 0;
+}
+QSlider::handle:horizontal {
+    background-color: #EAEAEA;
+    border: 0;
+    width: 10px;
+    margin: -6px 0;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #DA291C;
+}
+
+/* --- TabWidget (por si acaso) -------------------------------------------- */
+QTabWidget::pane {
+    border: 1px solid #1F1F1F;
+    border-radius: 0;
+}
+QTabBar::tab {
+    background-color: #0A0A0A;
+    color: #6E6E6E;
+    border: 1px solid #1F1F1F;
+    padding: 4px 10px;
+}
+QTabBar::tab:selected {
+    background-color: #0A0A0A;
+    color: #EAEAEA;
+    border-bottom: 2px solid #DA291C;
+}
+
+/* --- Calendario (ActivityCalendarWidget) --------------------------------- */
+/* La rejilla de dots se pinta en Phase 3; aqui solo legibilidad oscura. */
+QCalendarWidget QWidget {
+    alternate-background-color: #121212;
+    background-color: #0A0A0A;
+}
+QCalendarWidget QToolButton {
+    background-color: #0A0A0A;
+    color: #EAEAEA;
+    border: 0;
+    padding: 2px 4px;
+}
+QCalendarWidget QToolButton:hover {
+    background-color: #121212;
+}
+QCalendarWidget QMenu {
+    background-color: #050505;
+}
+QCalendarWidget QAbstractItemView {
+    background-color: #0A0A0A;
+    alternate-background-color: #121212;
+    selection-background-color: #DA291C;
+    selection-color: #EAEAEA;
+    border: 0;
+}
+
+/* --- QChartView (StatsView) ---------------------------------------------- */
+/* Qt Charts respeta poco el QSS; el theming oscuro vive en StatsView y en la
+   QPalette. Se fuerza fondo transparente para fundirse con la vista. */
+QChartView {
+    background-color: #0A0A0A;
+    border: 0;
+}

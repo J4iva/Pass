@@ -25,7 +25,7 @@ GoogleCredentialsDialog::GoogleCredentialsDialog(QWidget* parent)
         new QLabel(tr("Crea un OAuth Client de tipo «Aplicación de escritorio» en Google Cloud "
                       "Console y pega aquí sus datos. Guía: docs/google-calendar.md."));
     help->setWordWrap(true);
-    help->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+    help->setObjectName("hint");
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);

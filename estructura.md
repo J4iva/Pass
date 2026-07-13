@@ -19,6 +19,13 @@ Pensado para tener una versión web en el futuro.
   de tokens y client_id/secret de Google (nunca en disco ni en el repo).
 - **Markdown + YAML frontmatter** — las notas viven como ficheros `.md` en el vault
   de Obsidian (el sistema de ficheros es la fuente de verdad, no la base de datos).
+- **Capa visual brutalista (Dark Tactical / CRT Terminal)** — theming nativo de Qt:
+  `QStyle("Fusion")` + `QPalette` oscura + QSS global (`app/theme/theme.qss`) +
+  fuentes empaquetadas vía `.qrc` (**JetBrains Mono** para cuerpo y cabeceras de
+  texto en Bold -mayúsculas uniformes-, **VT323** pixel solo para el countdown del
+  timer -dígitos uniformes-, Doto Nothing-dots como alternativa conmutable vía
+  body). Monocromo + único rojo TrackPoint (`#DA291C`), `border-radius: 0`, cero
+  gradientes/sombras. Rediseño por fases (ver `docs/PLAN_VISUAL_BRUTALIST.md`).
 - **git del sistema (vía QProcess) + Git Credential Manager** — sincronización entre
   dispositivos contra un repo privado de GitHub; la app nunca maneja credenciales.
 - **CMake ≥ 3.25** con presets — build multi-target.
@@ -57,9 +64,14 @@ Pass/
 │   ├── MainWindow.*      # shell: sidebar de navegación + QStackedWidget
 │   ├── views/            # Dashboard, Calendario, Notas, Estudio, Estadísticas, Ajustes,
 │   │                     #   SubjectAdminView (Administración de asignaturas/temas)
-│   ├── widgets/          # timer, diálogos de sesión, de evento y de credenciales de Google
+│   ├── widgets/          # timer, diálogos de sesión/evento/credenciales, ActivityCalendarWidget
+│   │                     #   (dots por categoría) y ScanlineOverlay (scanlines CRT, toggle Ctrl+L)
 │   ├── util/             # helpers de UI compartidos (asignaturas, planificar sesión)
-│   └── models/           # modelos Qt (QAbstractItemModel) que consumen el core
+│   ├── models/           # modelos Qt (QAbstractItemModel) que consumen el core
+│   ├── theme/            # Theme.h/.cpp (tokens de color + applyTheme + helpers de cabecera),
+│   │                     #   theme.qss (QSS global) y DotIcon.h/.cpp (glifos 10x10 + dots de estado)
+│   ├── assets/fonts/     # VT323.ttf + Doto.ttf + JetBrainsMono.ttf (OFL) vía resources.qrc
+│   └── resources.qrc     # fuentes + QSS como recursos Qt (:/fonts, :/theme)
 └── tests/                # 18 suites QtTest registradas en ctest
 ```
 
@@ -181,8 +193,22 @@ pipeline y `tst_gitsynccontroller` para el camino en hilo worker).
   reprocese. Parser de **lista blanca** (acción/entidad/flags contra conjuntos fijos),
   límites de tamaño (8 KiB) y número (200/ciclo), fallos aislados (un comando roto no
   aborta el ciclo) y toggle `commands/enabled` en Ajustes. Spec completa:
-  `docs/commands.md`; tests en `tst_commandparser`, `tst_commandprocessor` (unitarios) y
+  `docs/commands.md`; tests en   `tst_commandparser`, `tst_commandprocessor` (unitarios) y
   `tst_commands` (E2E multi-dispositivo real con git).
+- **Capa visual brutalista (modo contingencia por fases)**: rediseño de la UI hacia un
+  lenguaje **brutalismo ASCII + dot-matrix estilo Nothing** sobre sustrato **Dark
+  Tactical/CRT** (off-black `#0A0A0A`, fósforo `#EAEAEA`), **monocromo + un único
+  rojo TrackPoint** (`#DA291C`) y `border-radius: 0` en todo. Se hace con **QSS nativo
+  + `QPalette` + `Fusion`** (nada de framework web ni design-system de terceros) y
+  **fuentes empaquetadas en el binario** (JetBrains Mono + VT323 + Doto, OFL, vía `.qrc`) para
+  no depender de fuentes del SO. Tokens centralizados en `app/theme/Theme.h`. Las
+  categorías se codifican por **patrón de dot** (Study=sólido, Google=anillo,
+  Local=cruz), no por color; la urgencia por **densidad** (dithering Bayer 4×4); los
+  estados por **dot** (● on / ○ off / ● rojo error). Iconografía 100 % glifos pintados
+  con `QPainter` en rejilla 10×10 (`DotIcon`): cero emojis. Textura CRT global de
+  scanlines (toggle Ctrl+L). Fases 0-4 completas (fundaciones, shell con delegate de
+  dots, vistas, widgets custom/dithering y scanlines). Detalle y pre-flight:
+  `docs/PLAN_VISUAL_BRUTALIST.md`.
 
 ## Herramientas
 

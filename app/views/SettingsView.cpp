@@ -2,6 +2,7 @@
 #include "SettingsView.h"
 
 #include "SubjectAdminView.h"
+#include "../theme/Theme.h"
 #include "../widgets/GoogleCredentialsDialog.h"
 
 #include "pass/google/GoogleAuthService.h"
@@ -32,15 +33,29 @@ using namespace pass;
 
 namespace {
 
-// Etiqueta de subapartado (negrita), para separar secciones dentro de un grupo.
+// Etiqueta de subapartado (framing ASCII), para separar secciones dentro de un grupo.
 QLabel* sectionHeader(const QString& text) {
-    auto* label = new QLabel(text);
-    QFont f = label->font();
-    f.setBold(true);
-    label->setFont(f);
-    return label;
+    return pass::theme::sectionLabel(text);
 }
 
+// Dot de estado en texto rico: ● fosforo (on/idle), ● verde fosforo (syncing),
+// ○ tenue (off), ● rojo (error). Reemplaza los emojis de estado.
+QString dotStatus(const char* hex, ushort ch, const QString& text) {
+    return QStringLiteral("<span style=\"color:%1\">%2</span>&nbsp;&nbsp;%3")
+        .arg(QString::fromLatin1(hex), QString(QChar(ch)), text);
+}
+QString dotOn(const QString& t) {
+    return dotStatus(pass::theme::kFgHex, 0x25CF, t);
+}
+QString dotSync(const QString& t) {
+    return dotStatus(pass::theme::kPhosphorHex, 0x25CF, t);
+}
+QString dotOff(const QString& t) {
+    return dotStatus(pass::theme::kFgFaintHex, 0x25CB, t);
+}
+QString dotErr(const QString& t) {
+    return dotStatus(pass::theme::kAccentHex, 0x25CF, t);
+}
 } // namespace
 
 SettingsView::SettingsView(GoogleAuthService& auth, GoogleSyncService* sync,
@@ -171,11 +186,11 @@ void SettingsView::refreshConnectionState() {
     const bool hasCreds = m_auth.hasClientCredentials();
     const bool connected = m_auth.isConnected();
 
-    m_credStatus->setText(hasCreds ? tr("✓ Credenciales guardadas") : tr("⚪ Sin credenciales"));
-    m_credButton->setText(hasCreds ? tr("Cambiar credenciales…") : tr("Añadir credenciales…"));
+    m_credStatus->setText(hasCreds ? dotOn(tr("Credenciales guardadas"))
+                                   : dotOff(tr("Sin credenciales")));
+    m_credButton->setText(hasCreds ? tr("Cambiar credenciales...") : tr("Añadir credenciales..."));
 
-    m_accountStatus->setText(connected ? tr("Estado: ✅ Conectado")
-                                       : tr("Estado: ⚪ Desconectado"));
+    m_accountStatus->setText(connected ? dotOn(tr("Conectado")) : dotOff(tr("Desconectado")));
     m_connect->setEnabled(hasCreds && !connected);
     m_disconnect->setEnabled(connected);
     m_syncNow->setEnabled(m_sync != nullptr && connected);
@@ -183,8 +198,8 @@ void SettingsView::refreshConnectionState() {
 
 void SettingsView::refreshSyncState() {
     if (!m_sync) {
-        m_syncStatus->setText(tr("Estado de sync: —"));
-        m_lastSync->setText(tr("Última sincronización: —"));
+        m_syncStatus->setText(tr("Estado de sync: -"));
+        m_lastSync->setText(tr("Última sincronización: -"));
         m_lastError->setText(QString());
         m_syncNow->setEnabled(false);
         return;
@@ -193,25 +208,25 @@ void SettingsView::refreshSyncState() {
     QString statusText;
     switch (m_sync->status()) {
     case pass::GoogleSyncService::Status::Disconnected:
-        statusText = tr("⚪ Sin conectar");
+        statusText = dotOff(tr("Sin conectar"));
         break;
     case pass::GoogleSyncService::Status::Idle:
-        statusText = tr("✅ Al día");
+        statusText = dotOn(tr("Al día"));
         break;
     case pass::GoogleSyncService::Status::Syncing:
-        statusText = tr("🔄 Sincronizando…");
+        statusText = dotSync(tr("Sincronizando"));
         break;
     case pass::GoogleSyncService::Status::Error:
-        statusText = tr("⚠️ Error");
+        statusText = dotErr(tr("Error"));
         break;
     }
     m_syncStatus->setText(tr("Estado de sync: %1").arg(statusText));
 
     const QDateTime last = m_sync->lastSync();
     m_lastSync->setText(last.isValid()
-                            ? tr("Última sincronización: %1")
-                                  .arg(QLocale().toString(last.toLocalTime(), QLocale::ShortFormat))
-                            : tr("Última sincronización: nunca"));
+                             ? tr("Última sincronización: %1")
+                                   .arg(QLocale().toString(last.toLocalTime(), QLocale::ShortFormat))
+                             : tr("Última sincronización: nunca"));
 
     const QString err = m_sync->lastError();
     m_lastError->setText(err.isEmpty() ? QString() : tr("Último error: %1").arg(err));
@@ -239,10 +254,10 @@ QGroupBox* SettingsView::buildGitSyncGroup() {
     m_gitLastSync = new QLabel;
     m_gitError = new QLabel;
     m_gitError->setWordWrap(true);
-    m_gitError->setStyleSheet(QStringLiteral("color: #b00;"));
+    m_gitError->setObjectName("errorText");
 
-    m_gitClone = new QPushButton(tr("Clonar repositorio…"));
-    m_gitAdopt = new QPushButton(tr("Elegir clon existente…"));
+    m_gitClone = new QPushButton(tr("Clonar repositorio..."));
+    m_gitAdopt = new QPushButton(tr("Elegir clon existente..."));
     m_gitSyncNow = new QPushButton(tr("Sincronizar ahora"));
     m_useNotesVault = new QPushButton(tr("Usar la carpeta notes/ del repo como vault"));
 
@@ -255,8 +270,11 @@ QGroupBox* SettingsView::buildGitSyncGroup() {
     auto* buttons = new QHBoxLayout;
     buttons->addWidget(m_gitClone);
     buttons->addWidget(m_gitAdopt);
-    buttons->addWidget(m_gitSyncNow);
     buttons->addStretch();
+
+    auto* syncNowRow = new QHBoxLayout;
+    syncNowRow->addStretch();
+    syncNowRow->addWidget(m_gitSyncNow);
 
     auto* lay = new QVBoxLayout(group);
     lay->addWidget(help);
@@ -265,6 +283,7 @@ QGroupBox* SettingsView::buildGitSyncGroup() {
     lay->addWidget(sectionHeader(tr("Estado")));
     lay->addWidget(m_gitStatus);
     lay->addWidget(m_gitLastSync);
+    lay->addLayout(syncNowRow);
     lay->addWidget(m_gitError);
     lay->addWidget(new QLabel(tr("Nombre de este dispositivo:")));
     lay->addLayout(nameRow);
@@ -343,7 +362,7 @@ void SettingsView::onGitConnected(const QString& branch) {
     m_gitSync->checkRepoIsPrivate([this](bool isPrivate) {
         if (!isPrivate)
             QMessageBox::warning(
-                this, tr("⚠️ Repositorio público"),
+                this, tr("Repositorio público"),
                 tr("El repositorio parece ser PÚBLICO: cualquiera podría leer tus datos y "
                    "notas. Hazlo privado en GitHub cuanto antes."));
     });
@@ -381,19 +400,19 @@ void SettingsView::refreshGitState() {
     QString statusText;
     switch (m_gitSync->status()) {
     case pass::sync::GitSyncService::Status::Disabled:
-        statusText = tr("⚪ Sin configurar / Git no disponible");
+        statusText = dotOff(tr("Sin configurar / Git no disponible"));
         break;
     case pass::sync::GitSyncService::Status::Idle:
-        statusText = tr("✅ Al día");
+        statusText = dotOn(tr("Al día"));
         break;
     case pass::sync::GitSyncService::Status::Syncing:
-        statusText = tr("🔄 Sincronizando…");
+        statusText = dotSync(tr("Sincronizando"));
         break;
     case pass::sync::GitSyncService::Status::Warning:
-        statusText = tr("⚠️ Pendiente de enviar");
+        statusText = dotOn(tr("Pendiente de enviar"));
         break;
     case pass::sync::GitSyncService::Status::Error:
-        statusText = tr("⚠️ Error");
+        statusText = dotErr(tr("Error"));
         break;
     }
     m_gitStatus->setText(tr("Estado: %1").arg(statusText));

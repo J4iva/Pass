@@ -67,8 +67,9 @@ datos personales en un remoto). Ver el plan completo y la guía `docs/github-syn
       cada dispositivo mantiene su propio vault de Obsidian y comparte solo las notas
       de Pass. `MainWindow` vigila esa carpeta y dispara `scheduleAutoPush` (debounce
       30 s). Test E2E `notesSyncFromExternalVault`.
-- [ ] Validación **E2E real** contra un repo privado de GitHub de prueba (clonar desde
+- [x] Validación **E2E real** contra un repo privado de GitHub de prueba (clonar desde
       *Ajustes*, crear sesión, verificar commit+push y la fusión en un 2º dispositivo).
-- [ ] Revisión de seguridad dedicada de M8.3/M8.4 antes de publicar (checklist hecha;
+- [x] Revisión de seguridad dedicada de M8.3/M8.4 antes de publicar (checklist hecha;
       ver resumen de contingencia más abajo).
-- [ ] En Ajustes Conexiones sincronizar ahora de GitHub debe ir debajo de última sincronización. //TODO human
+- [x] En Ajustes Conexiones sincronizar ahora de GitHub debe ir debajo de última sincronización. 
+- [x] Cuando creas una nota y creas una asignatura esta se guarda como asignatura pero no se muestra en los Ajustes>Administracion>Asignaturas.

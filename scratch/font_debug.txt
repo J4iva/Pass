@@ -1,0 +1,17 @@
+Theme apply returned: true
+displayFamily: JetBrains Mono
+bodyFamily: JetBrains Mono
+QRC Doto.ttf exists: 1
+QRC VT323.ttf exists: 1
+QRC JetBrainsMono.ttf exists: 1
+Doto font ID: 3
+Doto families: Doto, Doto Thin, Doto, Doto ExtraLight, Doto, Doto Light, Doto, Doto, Doto Medium, Doto, Doto SemiBold, Doto, Doto, Doto ExtraBold, Doto, Doto Black
+VT323 font ID: 4
+VT323 families: VT323
+JB font ID: 5
+JB families: JetBrains Mono, JetBrains Mono Thin, JetBrains Mono, JetBrains Mono ExtraLight, JetBrains Mono, JetBrains Mono Light, JetBrains Mono, JetBrains Mono, JetBrains Mono Medium, JetBrains Mono, JetBrains Mono, JetBrains Mono ExtraBold
+fBody.family(): JetBrains Mono
+QFontInfo.family(): JetBrains Mono
+exactMatch: 1
+fDisplay.family(): JetBrains Mono
+QFontInfo.family(): JetBrains Mono

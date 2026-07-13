@@ -2,6 +2,11 @@ qt_add_executable(pass WIN32
     main.cpp
     MainWindow.h
     MainWindow.cpp
+    theme/Theme.h
+    theme/Theme.cpp
+    theme/DotIcon.h
+    theme/DotIcon.cpp
+    resources.qrc
     views/StudyView.h
     views/StudyView.cpp
     views/StatsView.h
@@ -22,6 +27,8 @@ qt_add_executable(pass WIN32
     widgets/GoogleCredentialsDialog.cpp
     widgets/ActivityCalendarWidget.h
     widgets/ActivityCalendarWidget.cpp
+    widgets/ScanlineOverlay.h
+    widgets/ScanlineOverlay.cpp
     models/SessionTableModel.h
     models/SessionTableModel.cpp
     widgets/SessionSetupDialog.h

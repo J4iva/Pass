@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CalendarView.h"
 
+#include "../theme/DotIcon.h"
+#include "../theme/Theme.h"
 #include "../util/SessionPlanner.h"
 #include "../widgets/ActivityCalendarWidget.h"
 #include "../widgets/EventDialog.h"
@@ -32,18 +34,6 @@ ActivityCalendarWidget::Category categoryOf(const CalendarEvent& e) {
     if (e.provider == QStringLiteral("google"))
         return ActivityCalendarWidget::Google;
     return ActivityCalendarWidget::Local;
-}
-
-// Una muestra de color (círculo relleno) para la leyenda.
-QPixmap legendDot(const QColor& color) {
-    QPixmap pm(12, 12);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(color);
-    p.drawEllipse(1, 1, 10, 10);
-    return pm;
 }
 
 } // namespace
@@ -118,18 +108,19 @@ void CalendarView::refreshDayList() {
     m_list->clear();
     for (const auto& e : m_dayEvents) {
         const QString when = e.allDay
-                                 ? tr("Todo el día")
-                                 : QStringLiteral("%1–%2").arg(
-                                       e.startUtc.toLocalTime().toString(QStringLiteral("HH:mm")),
-                                       e.endUtc.toLocalTime().toString(QStringLiteral("HH:mm")));
-        QString text = QStringLiteral("%1  %2").arg(when, taskDisplayTitle(e));
-        if (isTask(e))
-            text.prepend(QStringLiteral("📋 "));
+                                  ? tr("Todo el día")
+                                  : QStringLiteral("%1-%2").arg(
+                                        e.startUtc.toLocalTime().toString(QStringLiteral("HH:mm")),
+                                        e.endUtc.toLocalTime().toString(QStringLiteral("HH:mm")));
+        auto* item = new QListWidgetItem(QStringLiteral("%1  %2").arg(when, taskDisplayTitle(e)));
+        // Icono de dot por categoria principal (estudio > tarea > google).
         if (!e.sourceSessionId.isNull())
-            text.prepend(QStringLiteral("📚 "));
-        if (e.provider == QStringLiteral("google"))
-            text.prepend(QStringLiteral("🌐 "));
-        m_list->addItem(text);
+            item->setIcon(theme::glyphIcon(theme::Glyph::Study, 14));
+        else if (isTask(e))
+            item->setIcon(theme::glyphIcon(theme::Glyph::Task, 14));
+        else if (e.provider == QStringLiteral("google"))
+            item->setIcon(theme::glyphIcon(theme::Glyph::Web, 14));
+        m_list->addItem(item);
     }
     m_edit->setEnabled(false);
     m_delete->setEnabled(false);
@@ -170,10 +161,10 @@ QWidget* CalendarView::buildLegend() {
     row->setSpacing(14);
     for (const auto& e : entries) {
         auto* dot = new QLabel;
-        dot->setPixmap(legendDot(ActivityCalendarWidget::categoryColor(e.category)));
+        dot->setPixmap(ActivityCalendarWidget::categoryPixmap(e.category, 16));
         auto* text = new QLabel(e.label);
         auto* item = new QHBoxLayout;
-        item->setSpacing(5);
+        item->setSpacing(6);
         item->addWidget(dot);
         item->addWidget(text);
         row->addLayout(item);

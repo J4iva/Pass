@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DashboardView.h"
 
+#include "../theme/Theme.h"
 #include "pass/notes/VaultService.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QPainter>
+#include <QPixmap>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -13,19 +16,41 @@ using namespace pass;
 
 namespace {
 
-// Urgencia de una tarea con UN solo color (ámbar, el de "Evento" en el
-// calendario) variando solo la opacidad: más cerca de la entrega, más intenso.
-QColor urgencyColor(int daysLeft) {
-    QColor base(0xB7, 0x79, 0x1F);
+// Urgencia de una tarea como DENSIDAD de dots (dithering ordenado 4x4), no como
+// color: cuanto mas cerca la entrega, mas denso. Rojo (accent) solo a <=1 dia.
+// Mapa de Bayer 4x4 para que los dots se dispersen (no se apilen en columna).
+constexpr int kBayer4x4[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+
+QPixmap urgencyPixmap(int daysLeft) {
+    int n;
     if (daysLeft <= 1)
-        base.setAlpha(255);
+        n = 16;
     else if (daysLeft <= 3)
-        base.setAlpha(190);
+        n = 12;
     else if (daysLeft <= 7)
-        base.setAlpha(120);
+        n = 8;
+    else if (daysLeft <= 14)
+        n = 5;
     else
-        base.setAlpha(60);
-    return base;
+        n = 2;
+    const QColor color = daysLeft <= 1 ? theme::kAccent : theme::kFg;
+    const int px = 16;
+    const qreal cell = px / 4.0;
+    const qreal d = cell * 0.72;
+    QPixmap pm(px, px);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    for (int i = 0; i < 16; ++i) {
+        if (kBayer4x4[i] < n) {
+            const int r = i / 4;
+            const int c = i % 4;
+            p.drawEllipse(QRectF(c * cell + (cell - d) / 2.0, r * cell + (cell - d) / 2.0, d, d));
+        }
+    }
+    return pm;
 }
 
 QString dueText(int daysLeft) {
@@ -50,7 +75,7 @@ DashboardView::DashboardView(Database& db, CalendarProvider* calendar, QWidget* 
     : QWidget(parent), m_stats(db.handle()), m_sessions(db.handle()), m_calendar(calendar),
       m_week(new QLabel), m_days(new QSpinBox), m_events(new QListWidget),
       m_tasks(new QListWidget), m_lastNote(new QLabel) {
-    auto* title = new QLabel(tr("<h2>Tu semana</h2>"));
+    auto* title = pass::theme::titleLabel(tr("Tu semana"));
     m_week->setTextFormat(Qt::RichText);
     m_lastNote->setTextFormat(Qt::RichText);
     for (auto* list : {m_events, m_tasks}) {
@@ -69,18 +94,19 @@ DashboardView::DashboardView(Database& db, CalendarProvider* calendar, QWidget* 
     });
 
     auto* eventsHeader = new QHBoxLayout;
-    eventsHeader->addWidget(new QLabel(tr("<b>Eventos</b>")));
+    eventsHeader->addWidget(pass::theme::sectionLabel(tr("Eventos")));
     eventsHeader->addStretch();
     eventsHeader->addWidget(m_days);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(24, 24, 24, 24);
+    layout->setContentsMargins(28, 24, 28, 24);
+    layout->setSpacing(6);
     layout->addWidget(title);
     layout->addWidget(m_week);
-    layout->addSpacing(12);
+    layout->addSpacing(6);
     layout->addLayout(eventsHeader);
     layout->addWidget(m_events, 3);
-    layout->addWidget(new QLabel(tr("<b>Tareas</b>")));
+    layout->addWidget(pass::theme::sectionLabel(tr("Tareas")));
     layout->addWidget(m_tasks, 2);
     layout->addWidget(m_lastNote);
 
@@ -131,7 +157,7 @@ void DashboardView::refreshEvents() {
         const QString when =
             e.allDay ? e.startUtc.toLocalTime().toString(QStringLiteral("ddd dd"))
                      : e.startUtc.toLocalTime().toString(QStringLiteral("ddd dd, HH:mm"));
-        m_events->addItem(QStringLiteral("%1  —  %2").arg(when, e.title));
+        m_events->addItem(QStringLiteral("%1  //  %2").arg(when, e.title));
         ++shown;
     }
     if (shown == 0)
@@ -153,11 +179,11 @@ void DashboardView::refreshTasks() {
         const int daysLeft = int(now.daysTo(e.startUtc));
         const qint64 worked = m_sessions.totalSecondsForEvent(e.id);
         auto* item = new QListWidgetItem(
-            QStringLiteral("%1  ·  %2 (%3)  ·  %4")
+            QStringLiteral("%1  //  %2 (%3)  //  %4")
                 .arg(taskDisplayTitle(e), dueText(daysLeft),
                      e.startUtc.toLocalTime().toString(QStringLiteral("dd/MM")),
                      workedText(worked)));
-        item->setData(Qt::DecorationRole, urgencyColor(daysLeft));
+        item->setData(Qt::DecorationRole, urgencyPixmap(daysLeft));
         m_tasks->addItem(item);
         ++shown;
     }

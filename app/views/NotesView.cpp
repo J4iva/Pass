@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NotesView.h"
 
+#include "../theme/Theme.h"
 #include "../widgets/NewNoteDialog.h"
 
 #include "pass/repo/SubjectRepository.h"
@@ -42,22 +43,23 @@ NotesView::NotesView(Database* db, QWidget* parent)
     // Página 1: lista + editor con barra de conflicto.
     auto* mainPage = new QWidget;
     {
-        QFont mono(QStringLiteral("Consolas"));
+        QFont mono(pass::theme::bodyFamily());
+        mono.setPointSize(11);
         mono.setStyleHint(QFont::Monospace);
         m_editor->setFont(mono);
 
         // Barra mostrada cuando la nota abierta cambió en Obsidian y aquí hay
         // ediciones sin guardar.
         m_conflictBar->setVisible(false);
-        m_conflictBar->setFrameShape(QFrame::StyledPanel);
-        m_conflictBar->setStyleSheet(
-            QStringLiteral("background: #fff3cd; border: 1px solid #ffe69c;"));
+        m_conflictBar->setObjectName("conflictBar");
+        m_conflictBar->setFrameShape(QFrame::NoFrame);
         {
-            auto* text = new QLabel(tr("Esta nota se ha modificado en Obsidian."));
+            auto* text = new QLabel(tr("[ ! ] NOTA MODIFICADA EN OBSIDIAN"));
+            text->setObjectName("conflictBarText");
             auto* reload = new QPushButton(tr("Recargar"));
             auto* keep = new QPushButton(tr("Conservar lo mío"));
             auto* layout = new QHBoxLayout(m_conflictBar);
-            layout->setContentsMargins(8, 4, 8, 4);
+            layout->setContentsMargins(10, 6, 10, 6);
             layout->addWidget(text, 1);
             layout->addWidget(reload);
             layout->addWidget(keep);
@@ -76,12 +78,13 @@ NotesView::NotesView(Database* db, QWidget* parent)
         auto* newButton = new QPushButton(tr("Nueva nota"));
         auto* changeVault = new QPushButton(tr("Cambiar vault"));
         m_deleteButton->setEnabled(false);
-        m_vaultLabel->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+        m_vaultLabel->setObjectName("hint");
         m_vaultLabel->setWordWrap(true);
 
         auto* left = new QWidget;
         auto* leftLayout = new QVBoxLayout(left);
         leftLayout->setContentsMargins(0, 0, 0, 0);
+        leftLayout->addWidget(pass::theme::sectionLabel(tr("Notas")));
         leftLayout->addWidget(newButton);
         leftLayout->addWidget(m_list, 1);
         leftLayout->addWidget(m_deleteButton);
@@ -93,7 +96,7 @@ NotesView::NotesView(Database* db, QWidget* parent)
             tr("<a href=\"https://help.obsidian.md/syntax\">¿Cómo se escribe en Obsidian? "
                "Guía de formato: negrita, fórmulas, enlaces...</a>"));
         help->setOpenExternalLinks(true);
-        help->setStyleSheet(QStringLiteral("font-size: 11px;"));
+        help->setObjectName("hint");
 
         auto* right = new QWidget;
         auto* rightLayout = new QVBoxLayout(right);

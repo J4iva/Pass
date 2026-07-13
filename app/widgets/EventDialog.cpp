@@ -33,7 +33,7 @@ EventDialog::EventDialog(SubjectRepository& subjects, TopicRepository& topics,
         m_subject->addItem(s.name);
 
     m_topicHint->setWordWrap(true);
-    m_topicHint->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+    m_topicHint->setObjectName("hint");
     m_topicHint->hide();
 
     auto* form = new QFormLayout;

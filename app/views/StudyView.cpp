@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "StudyView.h"
 
+#include "../theme/DotIcon.h"
+#include "../theme/Theme.h"
 #include "../util/SessionPlanner.h"
 #include "../widgets/SessionSetupDialog.h"
 #include "../widgets/TimerWidget.h"
@@ -29,10 +31,11 @@ StudyView::StudyView(Database& db, SessionTimerService* timer, CalendarProvider*
     : QWidget(parent), m_subjects(db.handle()), m_topics(db.handle()), m_strategies(db.handle()),
       m_sessions(db.handle()), m_events(db.handle()), m_timer(timer), m_calendar(calendar),
       m_status(new QLabel), m_plannedList(new QListWidget),
-      m_startPlanned(new QPushButton(tr("▶ Empezar la seleccionada"))) {
+      m_startPlanned(new QPushButton(tr("Empezar la seleccionada"))) {
     auto* timerWidget = new TimerWidget(m_timer);
     m_status->setAlignment(Qt::AlignCenter);
-    m_status->setStyleSheet(QStringLiteral("color: gray;"));
+    m_status->setObjectName("hint");
+    m_startPlanned->setIcon(pass::theme::glyphIcon(pass::theme::Glyph::Play, 14));
 
     m_plannedList->setMaximumHeight(160);
     m_startPlanned->setEnabled(false);
@@ -54,9 +57,11 @@ StudyView::StudyView(Database& db, SessionTimerService* timer, CalendarProvider*
     connect(m_plannedList, &QListWidget::currentRowChanged, this, [this](int row) {
         const bool valid = row >= 0 && row < m_planned.size();
         m_startPlanned->setEnabled(valid);
-        m_startPlanned->setText(valid && isResumable(m_planned[row])
-                                    ? tr("⏸ Reanudar la seleccionada")
-                                    : tr("▶ Empezar la seleccionada"));
+        const bool resume = valid && isResumable(m_planned[row]);
+        m_startPlanned->setText(resume ? tr("Reanudar la seleccionada")
+                                       : tr("Empezar la seleccionada"));
+        m_startPlanned->setIcon(pass::theme::glyphIcon(
+            resume ? pass::theme::Glyph::Pause : pass::theme::Glyph::Play, 14));
     });
     // Planificar (aquí o en el calendario) crea un evento; al cambiar los eventos
     // se recarga la lista de pendientes.
@@ -102,10 +107,10 @@ void StudyView::planSession(const SessionPlan& plan, const QDateTime& startLocal
                               .arg(startLocal.toString(QStringLiteral("dd/MM/yyyy HH:mm"))));
         break;
     case util::PlanStatus::CalendarFailed:
-        m_status->setText(tr("⚠ No se pudo crear el evento en el calendario"));
+        m_status->setText(tr("[ ! ] No se pudo crear el evento en el calendario"));
         break;
     case util::PlanStatus::SaveFailed:
-        m_status->setText(tr("⚠ No se pudo guardar la sesión planificada"));
+        m_status->setText(tr("[ ! ] No se pudo guardar la sesión planificada"));
         break;
     }
 }
@@ -174,17 +179,20 @@ void StudyView::refreshPlanned() {
         QString label;
         if (isResumable(s)) {
             const int mins = (remainingSecondsFor(s) + 59) / 60; // redondeo hacia arriba
-            label = tr("⏸ Reanudar — quedan %1 min").arg(mins);
+            label = tr("[ REANUDAR ]  quedan %1 min").arg(mins);
         } else {
             label = s.startedAt.toLocalTime().toString(QStringLiteral("dd/MM HH:mm"));
         }
         if (const auto subject = m_subjects.byId(s.subjectId); subject && !subject->name.isEmpty())
-            label += QStringLiteral("  ·  %1").arg(subject->name);
+            label += QStringLiteral("  //  %1").arg(subject->name);
         if (!s.topic.isEmpty())
-            label += QStringLiteral("  ·  %1").arg(s.topic);
+            label += QStringLiteral("  //  %1").arg(s.topic);
         if (!isResumable(s))
             label += QStringLiteral("  (%1 min)").arg(s.plannedMinutes);
-        m_plannedList->addItem(label);
+        auto* item = new QListWidgetItem(label);
+        item->setIcon(pass::theme::glyphIcon(
+            isResumable(s) ? pass::theme::Glyph::Pause : pass::theme::Glyph::Clock, 14));
+        m_plannedList->addItem(item);
     }
     if (m_planned.isEmpty())
         m_plannedList->addItem(tr("(no hay sesiones pendientes)"));
@@ -221,7 +229,7 @@ void StudyView::onFinished(const StudySession& session) {
                               .arg(minutes > 0 ? QString::number(minutes)
                                                : QStringLiteral("<1")));
     } else {
-        m_status->setText(tr("⚠ No se pudo guardar la sesión"));
+        m_status->setText(tr("[ ! ] No se pudo guardar la sesión"));
     }
     refreshPlanned();
 }

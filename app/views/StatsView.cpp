@@ -2,7 +2,9 @@
 #include "StatsView.h"
 
 #include "../models/SessionTableModel.h"
+#include "../theme/Theme.h"
 
+#include <QAbstractAxis>
 #include <QBarCategoryAxis>
 #include <QBarSet>
 #include <QChart>
@@ -13,24 +15,46 @@
 #include <QHorizontalBarSeries>
 #include <QLabel>
 #include <QLineSeries>
+#include <QPen>
 #include <QTableView>
-#include <QVBoxLayout>
 #include <QValueAxis>
+#include <QVBoxLayout>
 
 using namespace pass;
 
 namespace {
 
-// Adapta la gráfica a la paleta de la app: con tema oscuro de Windows, QChart
-// se queda blanco por defecto (ChartThemeLight). Debe llamarse JUSTO después de
-// crear el QChart: setTheme machaca cualquier personalización previa.
-void applyPaletteTheme(QChart* chart, const QPalette& palette) {
-    const bool dark = palette.color(QPalette::Window).lightness() < 128;
-    if (dark)
-        chart->setTheme(QChart::ChartThemeDark);
-    // Sin fondo propio: se funde con el fondo de la vista (claro u oscuro).
-    chart->setBackgroundVisible(false);
-    chart->setTitleBrush(palette.color(QPalette::WindowText));
+// Tema monocromo para QChart: fondo transparente (se funde con la vista),
+// titulo a fosforo, ejes tenues y rejilla casi invisible. Las series se
+// colorean a mano (Qt Charts respeta poco el QSS y ChartThemeDark trae color).
+void applyChartTheme(QChart* chart) {
+    chart->setTheme(QChart::ChartThemeDark);
+    // Fondo del chart y del plot area a la fuerza oscuros (Qt Charts deja blanco
+    // el de barras por defecto y respeta poco el QSS).
+    chart->setBackgroundVisible(true);
+    chart->setBackgroundBrush(QBrush(theme::kBg));
+    chart->setBackgroundPen(Qt::NoPen);
+    chart->setPlotAreaBackgroundVisible(true);
+    chart->setPlotAreaBackgroundBrush(QBrush(theme::kBg));
+    chart->setPlotAreaBackgroundPen(Qt::NoPen);
+    chart->setTitleBrush(theme::kFg);
+    chart->setTitleFont(theme::bodyFont(11));
+    chart->legend()->hide();
+    QFont f = theme::bodyFont(10);
+    chart->setFont(f);
+}
+
+void styleAxis(QAbstractAxis* axis) {
+    axis->setLabelsColor(theme::kFgDim);
+    axis->setLinePenColor(theme::kRule);
+    axis->setLabelsFont(theme::bodyFont(8));
+    axis->setGridLineVisible(true);
+    if (auto* va = qobject_cast<QValueAxis*>(axis))
+        va->setGridLineColor(theme::kRule);
+    else if (auto* da = qobject_cast<QDateTimeAxis*>(axis))
+        da->setGridLineColor(theme::kRule);
+    else if (auto* ca = qobject_cast<QBarCategoryAxis*>(axis))
+        ca->setGridLineColor(theme::kRule);
 }
 
 } // namespace
@@ -41,6 +65,8 @@ StatsView::StatsView(Database& db, QWidget* parent)
       m_model(new SessionTableModel(this)) {
     m_subjectChart->setRenderHint(QPainter::Antialiasing);
     m_dailyChart->setRenderHint(QPainter::Antialiasing);
+    m_subjectChart->setBackgroundBrush(QBrush(theme::kBg));
+    m_dailyChart->setBackgroundBrush(QBrush(theme::kBg));
 
     auto* table = new QTableView;
     table->setModel(m_model);
@@ -91,12 +117,13 @@ void StatsView::rebuildSubjectChart(const QList<SubjectHours>& rows) {
 
     auto* series = new QHorizontalBarSeries;
     series->append(set);
+    set->setColor(theme::kFg);
+    set->setBorderColor(theme::kBg);
 
     auto* chart = new QChart;
-    applyPaletteTheme(chart, palette());
+    applyChartTheme(chart);
     chart->addSeries(series);
     chart->setTitle(tr("Horas por asignatura"));
-    chart->legend()->hide();
 
     auto* axisY = new QBarCategoryAxis;
     axisY->append(categories);
@@ -108,6 +135,9 @@ void StatsView::rebuildSubjectChart(const QList<SubjectHours>& rows) {
     axisX->applyNiceNumbers();
     chart->addAxis(axisX, Qt::AlignBottom);
     series->attachAxis(axisX);
+
+    styleAxis(axisY);
+    styleAxis(axisX);
 
     QChart* old = m_subjectChart->chart();
     m_subjectChart->setChart(chart);
@@ -123,10 +153,9 @@ void StatsView::rebuildDailyChart(const QList<DailyMinutes>& series) {
     }
 
     auto* chart = new QChart;
-    applyPaletteTheme(chart, palette());
+    applyChartTheme(chart);
     chart->addSeries(line);
     chart->setTitle(tr("Minutos de trabajo (últimos 30 días)"));
-    chart->legend()->hide();
 
     auto* axisX = new QDateTimeAxis;
     axisX->setFormat(QStringLiteral("dd/MM"));
@@ -139,6 +168,11 @@ void StatsView::rebuildDailyChart(const QList<DailyMinutes>& series) {
     axisY->setLabelFormat(QStringLiteral("%d"));
     chart->addAxis(axisY, Qt::AlignLeft);
     line->attachAxis(axisY);
+
+    line->setPen(QPen(theme::kFg, 2));
+    line->setColor(theme::kFg);
+    styleAxis(axisX);
+    styleAxis(axisY);
 
     QChart* old = m_dailyChart->chart();
     m_dailyChart->setChart(chart);

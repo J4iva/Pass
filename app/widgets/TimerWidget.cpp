@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "TimerWidget.h"
 
+#include "../theme/Theme.h"
+
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
 
 using Service = pass::SessionTimerService;
+using namespace pass::theme;
 
 TimerWidget::TimerWidget(Service* service, QWidget* parent)
     : QWidget(parent), m_service(service), m_time(new QLabel(QStringLiteral("--:--"))),
       m_phase(new QLabel), m_newSession(new QPushButton(tr("Nueva sesión"))),
       m_pauseResume(new QPushButton(tr("Pausar"))), m_stop(new QPushButton(tr("Terminar"))) {
-    QFont big = m_time->font();
-    big.setPointSize(56);
-    big.setBold(true);
-    m_time->setFont(big);
+    // Countdown en VT323 pixel (digitos uniformes); texto de fase en mono.
+    m_time->setFont(timerFont(64));
     m_time->setAlignment(Qt::AlignCenter);
 
-    QFont mid = m_phase->font();
-    mid.setPointSize(16);
-    m_phase->setFont(mid);
+    m_phase->setFont(bodyFont(13));
     m_phase->setAlignment(Qt::AlignCenter);
+    m_phase->setTextFormat(Qt::RichText);
 
     auto* buttons = new QHBoxLayout;
     buttons->addStretch();
@@ -51,6 +51,7 @@ TimerWidget::TimerWidget(Service* service, QWidget* parent)
     connect(m_service, &Service::phaseChanged, this, &TimerWidget::updatePhaseLabel);
 
     onStateChanged(m_service->state());
+    updatePhaseLabel(m_service->phase());
 }
 
 void TimerWidget::onTick(int remainingSeconds, Service::Phase phase) {
@@ -68,31 +69,25 @@ void TimerWidget::onStateChanged(Service::State state) {
     m_pauseResume->setText(state == Service::State::Paused ? tr("Reanudar") : tr("Pausar"));
 
     if (state == Service::State::Finished) {
-        m_phase->setText(tr("¡Sesión completada!"));
-        m_phase->setStyleSheet(QStringLiteral("color: #2e7d32;"));
+        m_phase->setText(statusDotRich(kPhosphorHex, 0x25CF, tr("Sesión completada")));
         m_time->setText(QStringLiteral("00:00"));
     } else if (state == Service::State::Aborted) {
-        m_phase->setText(tr("Sesión terminada antes de tiempo"));
-        m_phase->setStyleSheet(QString());
+        m_phase->setText(statusDotRich(kFgFaintHex, 0x25CB, tr("Sesión terminada antes de tiempo")));
     } else if (state == Service::State::Idle) {
-        m_phase->setText(tr("Listo para trabajar"));
-        m_phase->setStyleSheet(QString());
+        m_phase->setText(statusDotRich(kFgFaintHex, 0x25CB, tr("Listo para trabajar")));
     }
 }
 
 void TimerWidget::updatePhaseLabel(Service::Phase phase) {
     switch (phase) {
     case Service::Phase::Work:
-        m_phase->setText(tr("Trabajo"));
-        m_phase->setStyleSheet(QStringLiteral("color: #c62828; font-weight: bold;"));
+        m_phase->setText(statusDotRich(kAccentHex, 0x25CF, tr("Trabajo")));
         break;
     case Service::Phase::ShortBreak:
-        m_phase->setText(tr("Descanso"));
-        m_phase->setStyleSheet(QStringLiteral("color: #2e7d32;"));
+        m_phase->setText(statusDotRich(kFgFaintHex, 0x25CB, tr("Descanso")));
         break;
     case Service::Phase::LongBreak:
-        m_phase->setText(tr("Descanso largo"));
-        m_phase->setStyleSheet(QStringLiteral("color: #1565c0;"));
+        m_phase->setText(statusDotRich(kFgHex, 0x25CF, tr("Descanso largo")));
         break;
     }
 }

@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="fonts/Doto.ttf">assets/fonts/Doto.ttf</file>
+        <file alias="fonts/VT323.ttf">assets/fonts/VT323.ttf</file>
+        <file alias="fonts/JetBrainsMono.ttf">assets/fonts/JetBrainsMono.ttf</file>
+        <file alias="theme/theme.qss">theme/theme.qss</file>
+    </qresource>
+</RCC>
